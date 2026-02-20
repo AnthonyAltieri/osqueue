@@ -1,0 +1,5 @@
+{
+  "name": "osqueue",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

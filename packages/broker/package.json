@@ -1,0 +1,24 @@
+{
+  "name": "@osqueue/broker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@osqueue/types": "workspace:*",
+    "@osqueue/storage": "workspace:*",
+    "@osqueue/core": "workspace:*",
+    "@osqueue/proto": "workspace:*",
+    "@bufbuild/protobuf": "^2.0.0",
+    "@connectrpc/connect": "^2.0.0",
+    "@connectrpc/connect-node": "^2.0.0",
+    "@connectrpc/connect-fastify": "^2.0.0",
+    "fastify": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/bun": "latest"
+  }
+}

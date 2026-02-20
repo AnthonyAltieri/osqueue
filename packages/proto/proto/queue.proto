@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package osqueue.v1;
+
+service QueueService {
+  rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse);
+  rpc ClaimJob(ClaimJobRequest) returns (ClaimJobResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+}
+
+message SubmitJobRequest {
+  // JSON-encoded payload
+  bytes payload = 1;
+  optional int32 max_attempts = 2;
+}
+
+message SubmitJobResponse {
+  string job_id = 1;
+}
+
+message ClaimJobRequest {
+  string worker_id = 1;
+}
+
+message ClaimJobResponse {
+  // Empty if no jobs available
+  optional string job_id = 1;
+  optional bytes payload = 2;
+}
+
+message HeartbeatRequest {
+  string job_id = 1;
+  string worker_id = 2;
+}
+
+message HeartbeatResponse {}
+
+message CompleteJobRequest {
+  string job_id = 1;
+  string worker_id = 2;
+}
+
+message CompleteJobResponse {}
+
+message GetStatsRequest {}
+
+message GetStatsResponse {
+  int32 total = 1;
+  int32 unclaimed = 2;
+  int32 in_progress = 3;
+  string broker_address = 4;
+}

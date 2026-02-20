@@ -1,0 +1,3 @@
+[install]
+# Install dependencies for all workspaces
+auto-install = true
