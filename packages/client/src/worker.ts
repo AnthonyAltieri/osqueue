@@ -1,15 +1,21 @@
-import { OsqueueClient } from "./client.js";
+import { z } from "zod";
+import { OsqueueClient, type JobTypeRegistry, type DefaultRegistry } from "./client.js";
+import type { JobId, WorkerId } from "@osqueue/types";
 
-export type JobHandler = (
-  payload: unknown,
+export type TypedJobHandler<P = unknown> = (
+  payload: P,
   signal: AbortSignal,
 ) => Promise<void>;
 
-export interface WorkerOptions {
-  client: OsqueueClient;
+export type JobHandlerMap<R extends JobTypeRegistry = DefaultRegistry> = {
+  [T in keyof R]?: TypedJobHandler<z.infer<R[T]>>;
+};
+
+export interface WorkerOptions<R extends JobTypeRegistry = DefaultRegistry> {
+  client: OsqueueClient<R>;
   workerId?: string;
-  /** Job processing function */
-  handler: JobHandler;
+  /** Per-type job handlers */
+  handlers: JobHandlerMap<R>;
   /** Poll interval in ms (default: 1000) */
   pollIntervalMs?: number;
   /** Heartbeat interval in ms (default: 5000) */
@@ -18,23 +24,25 @@ export interface WorkerOptions {
   concurrency?: number;
 }
 
-export class Worker {
-  private client: OsqueueClient;
-  private workerId: string;
-  private handler: JobHandler;
+export class Worker<R extends JobTypeRegistry = DefaultRegistry> {
+  private client: OsqueueClient<R>;
+  private workerId: WorkerId;
+  private handlers: JobHandlerMap<R>;
+  private handledTypes: (string & keyof R)[];
   private pollIntervalMs: number;
   private heartbeatIntervalMs: number;
   private concurrency: number;
   private running = false;
   private activeJobs = 0;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
-  private abortControllers = new Map<string, AbortController>();
-  private heartbeatTimers = new Map<string, ReturnType<typeof setInterval>>();
+  private abortControllers = new Map<JobId, AbortController>();
+  private heartbeatTimers = new Map<JobId, ReturnType<typeof setInterval>>();
 
-  constructor(options: WorkerOptions) {
+  constructor(options: WorkerOptions<R>) {
     this.client = options.client;
-    this.workerId = options.workerId ?? crypto.randomUUID();
-    this.handler = options.handler;
+    this.workerId = (options.workerId ?? crypto.randomUUID()) as WorkerId;
+    this.handlers = options.handlers;
+    this.handledTypes = Object.keys(options.handlers) as (string & keyof R)[];
     this.pollIntervalMs = options.pollIntervalMs ?? 1000;
     this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 5000;
     this.concurrency = options.concurrency ?? 1;
@@ -90,8 +98,32 @@ export class Worker {
 
   private async tryClaimAndProcess(): Promise<void> {
     try {
-      const job = await this.client.claimJob(this.workerId);
+      const job = await this.client.claimJob(
+        this.workerId,
+        this.handledTypes.length > 0 ? this.handledTypes : undefined,
+      );
       if (!job) return;
+
+      // Validate payload against Zod schema if registered
+      const schema = this.client.registry[job.type as keyof R];
+      let validatedPayload = job.payload;
+      if (schema) {
+        const parseResult = schema.safeParse(job.payload);
+        if (!parseResult.success) {
+          console.error(
+            `Invalid payload for job ${job.jobId} (type "${job.type}"): ${parseResult.error.message}`,
+          );
+          await this.client.completeJob(job.jobId, this.workerId);
+          return;
+        }
+        validatedPayload = parseResult.data;
+      }
+
+      const handler = this.handlers[job.type as keyof R] as TypedJobHandler | undefined;
+      if (!handler) {
+        console.error(`No handler for job type "${job.type}", job ${job.jobId}`);
+        return;
+      }
 
       this.activeJobs++;
       const controller = new AbortController();
@@ -108,7 +140,7 @@ export class Worker {
       this.heartbeatTimers.set(job.jobId, heartbeatTimer);
 
       try {
-        await this.handler(job.payload, controller.signal);
+        await handler(validatedPayload, controller.signal);
         // Complete the job on success
         await this.client.completeJob(job.jobId, this.workerId);
       } catch (err) {

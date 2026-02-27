@@ -1,5 +1,16 @@
 {
   "name": "osqueue",
   "private": true,
-  "workspaces": ["packages/*"]
+  "workspaces": ["packages/*", "apps"],
+  "scripts": {
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt --write .",
+    "fmt:check": "oxfmt --check ."
+  },
+  "devDependencies": {
+    "oxfmt": "^0.34.0",
+    "oxlint": "^1.49.0",
+    "sst": "^3.0.0"
+  }
 }

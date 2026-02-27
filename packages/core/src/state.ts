@@ -3,6 +3,8 @@ import type {
   Job,
   Mutation,
   MutationResult,
+  JobId,
+  WorkerId,
 } from "@osqueue/types";
 import {
   DEFAULT_HEARTBEAT_TIMEOUT_MS,
@@ -15,21 +17,22 @@ export function emptyState(): QueueState {
     broker: null,
     brokerHeartbeat: 0,
     jobs: [],
+    completedTotal: 0,
   };
 }
 
 /** Generate a UUID v4 using crypto */
-function uuid(): string {
-  return crypto.randomUUID();
+function uuid(): JobId {
+  return crypto.randomUUID() as JobId;
 }
 
 /** Enqueue new jobs into the state */
 export function enqueueJobs(
   state: QueueState,
-  payloads: Array<{ payload: unknown; maxAttempts?: number }>,
+  payloads: Array<{ payload: unknown; jobType?: string; maxAttempts?: number }>,
   now: number = Date.now(),
-): { state: QueueState; ids: string[] } {
-  const ids: string[] = [];
+): { state: QueueState; ids: JobId[] } {
+  const ids: JobId[] = [];
   const newJobs: Job[] = payloads.map((p) => {
     const id = uuid();
     ids.push(id);
@@ -37,6 +40,7 @@ export function enqueueJobs(
       id,
       status: "unclaimed" as const,
       payload: p.payload,
+      type: p.jobType,
       createdAt: now,
       attempts: 0,
       maxAttempts: p.maxAttempts,
@@ -51,10 +55,20 @@ export function enqueueJobs(
 /** Claim the first unclaimed job for a worker */
 export function claimJob(
   state: QueueState,
-  workerId: string,
+  workerId: WorkerId,
   now: number = Date.now(),
-): { state: QueueState; claimed: { id: string; payload: unknown } | null } {
-  const idx = state.jobs.findIndex((j) => j.status === "unclaimed");
+  jobTypes?: string[],
+): { state: QueueState; claimed: { id: JobId; payload: unknown; type?: string } | null } {
+  const idx = state.jobs.findIndex((j) => {
+    if (j.status !== "unclaimed") return false;
+    if (jobTypes && jobTypes.length > 0 && j.type) {
+      return jobTypes.includes(j.type);
+    }
+    if (jobTypes && jobTypes.length > 0 && !j.type) {
+      return false;
+    }
+    return true;
+  });
   if (idx === -1) {
     return { state, claimed: null };
   }
@@ -72,15 +86,15 @@ export function claimJob(
   jobs[idx] = updatedJob;
   return {
     state: { ...state, jobs },
-    claimed: { id: job.id, payload: job.payload },
+    claimed: { id: job.id, payload: job.payload, type: job.type },
   };
 }
 
 /** Update heartbeat for an in-progress job */
 export function heartbeatJob(
   state: QueueState,
-  jobId: string,
-  workerId: string,
+  jobId: JobId,
+  workerId: WorkerId,
   now: number = Date.now(),
 ): QueueState {
   const idx = state.jobs.findIndex(
@@ -96,8 +110,8 @@ export function heartbeatJob(
 /** Complete a job (remove it from the array) */
 export function completeJob(
   state: QueueState,
-  jobId: string,
-  workerId: string,
+  jobId: JobId,
+  workerId: WorkerId,
 ): QueueState {
   const idx = state.jobs.findIndex(
     (j) => j.id === jobId && j.workerId === workerId && j.status === "in_progress",
@@ -105,7 +119,7 @@ export function completeJob(
   if (idx === -1) return state;
 
   const jobs = state.jobs.filter((_, i) => i !== idx);
-  return { ...state, jobs };
+  return { ...state, jobs, completedTotal: (state.completedTotal ?? 0) + 1 };
 }
 
 /** Expire stale heartbeats: reset timed-out in_progress jobs to unclaimed or remove if max attempts exceeded */
@@ -170,6 +184,7 @@ export function applyMutation(
         state,
         mutation.workerId,
         now,
+        mutation.jobTypes,
       );
       return { state: newState, result: { claimedJob: claimed } };
     }

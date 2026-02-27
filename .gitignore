@@ -3,3 +3,7 @@ dist
 *.tsbuildinfo
 .DS_Store
 bun.lock
+.sst/
+sst-env.d.ts
+.env
+app.config.timestamp_*

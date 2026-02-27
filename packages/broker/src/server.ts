@@ -1,5 +1,7 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { fastifyConnectPlugin } from "@connectrpc/connect-fastify";
+import type { ConnectRouter } from "@connectrpc/connect";
 import { QueueService } from "@osqueue/proto";
 import { GroupCommitEngine, BrokerElection } from "@osqueue/core";
 import type { StorageBackend } from "@osqueue/types";
@@ -75,10 +77,31 @@ export class BrokerServer {
       timestamp: Date.now(),
     });
 
+    // Enable CORS for browser clients
+    await this.server.register(cors, {
+      origin: true,
+      methods: ["GET", "POST", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Connect-Protocol-Version",
+        "Connect-Timeout-Ms",
+      ],
+      exposedHeaders: ["Connect-Protocol-Version"],
+    });
+
+    // Health check for ALB
+    this.server.get("/healthz", async () => ({ status: "ok" }));
+
+    // Raw queue state (same JSON as in S3)
+    this.server.get("/state", async () => {
+      const state = this.engine.getCachedState();
+      return state ?? {};
+    });
+
     // Set up ConnectRPC routes
     const serviceImpl = createQueueServiceImpl(this.engine);
     await this.server.register(fastifyConnectPlugin, {
-      routes(router) {
+      routes(router: ConnectRouter) {
         router.service(QueueService, serviceImpl);
       },
     });

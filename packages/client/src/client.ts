@@ -1,5 +1,4 @@
-import { createClient, type Client } from "@connectrpc/connect";
-import { createConnectTransport } from "@connectrpc/connect-node";
+import { createClient, type Client, type Transport } from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
 import {
   QueueService,
@@ -8,48 +7,62 @@ import {
   HeartbeatRequestSchema,
   CompleteJobRequestSchema,
   GetStatsRequestSchema,
+  ListJobsRequestSchema,
 } from "@osqueue/proto";
 import type {
-  SubmitJobResponse,
-  ClaimJobResponse,
   GetStatsResponse,
+  ListJobsResponse,
 } from "@osqueue/proto";
-import type { StorageBackend, QueueState } from "@osqueue/types";
+import type { StorageBackend, QueueState, JobId, WorkerId } from "@osqueue/types";
 import { QUEUE_STATE_KEY } from "@osqueue/types";
+import { z } from "zod";
+
+export type JobTypeRegistry = Record<string, z.ZodType>;
+export type DefaultRegistry = Record<string, z.ZodType>;
 
 export interface OsqueueClientOptions {
   /** Direct broker URL (e.g. "http://localhost:8080"). If provided, skips discovery. */
   brokerUrl?: string;
   /** Storage backend for broker discovery from queue.json */
   storage?: StorageBackend;
+  /** Pre-built transport (e.g. from @connectrpc/connect-web for browsers) */
+  transport?: Transport;
   /** How often to retry broker discovery (ms, default: 2000) */
   discoveryRetryMs?: number;
-  /** HTTP version for transport (default: "1.1") */
+  /** HTTP version for transport (default: "1.1") — only used when transport not provided */
   httpVersion?: "1.1" | "2";
 }
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-export class OsqueueClient {
+export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
   private client: Client<typeof QueueService> | null = null;
   private brokerUrl: string | null;
   private storage: StorageBackend | null;
+  private transport: Transport | null;
   private discoveryRetryMs: number;
   private httpVersion: "1.1" | "2";
+  readonly registry: R;
 
-  constructor(options: OsqueueClientOptions) {
-    this.brokerUrl = options.brokerUrl ?? null;
-    this.storage = options.storage ?? null;
-    this.discoveryRetryMs = options.discoveryRetryMs ?? 2000;
-    this.httpVersion = options.httpVersion ?? "1.1";
+  constructor(options?: OsqueueClientOptions, registry?: R) {
+    this.brokerUrl = options?.brokerUrl ?? null;
+    this.storage = options?.storage ?? null;
+    this.transport = options?.transport ?? null;
+    this.discoveryRetryMs = options?.discoveryRetryMs ?? 2000;
+    this.httpVersion = options?.httpVersion ?? "1.1";
+    this.registry = registry ?? ({} as R);
 
-    if (this.brokerUrl) {
-      this.client = this.createGrpcClient(this.brokerUrl);
+    if (this.transport) {
+      this.client = createClient(QueueService, this.transport);
+    } else if (this.brokerUrl) {
+      this.client = this.createNodeClient(this.brokerUrl);
     }
   }
 
-  private createGrpcClient(url: string): Client<typeof QueueService> {
+  private createNodeClient(url: string): Client<typeof QueueService> {
+    // Dynamic import to avoid bundling connect-node in browser builds
+    const { createConnectTransport } = require("@connectrpc/connect-node");
     const transport = createConnectTransport({
       baseUrl: url,
       httpVersion: this.httpVersion,
@@ -62,9 +75,7 @@ export class OsqueueClient {
     if (this.client) return;
 
     if (!this.storage) {
-      throw new Error(
-        "No brokerUrl or storage provided for broker discovery",
-      );
+      throw new Error("No brokerUrl, transport, or storage provided for broker discovery");
     }
 
     const result = await this.storage.read(QUEUE_STATE_KEY);
@@ -78,14 +89,18 @@ export class OsqueueClient {
     }
 
     this.brokerUrl = `http://${state.broker}`;
-    this.client = this.createGrpcClient(this.brokerUrl);
+    this.client = this.createNodeClient(this.brokerUrl);
   }
 
   /** Reconnect to broker (used on connection failure) */
   async reconnect(): Promise<void> {
-    this.client = null;
-    this.brokerUrl = null;
-    await this.connect();
+    if (this.transport) {
+      this.client = createClient(QueueService, this.transport);
+    } else {
+      this.client = null;
+      this.brokerUrl = null;
+      await this.connect();
+    }
   }
 
   private async getClient(): Promise<Client<typeof QueueService>> {
@@ -95,35 +110,38 @@ export class OsqueueClient {
     return this.client!;
   }
 
-  async submitJob(
-    payload: unknown,
-    maxAttempts?: number,
-  ): Promise<string> {
+  async submitJob<T extends string & keyof R>(type: T, payload: z.infer<R[T]>, maxAttempts?: number): Promise<JobId> {
     const client = await this.getClient();
     const req = create(SubmitJobRequestSchema);
     req.payload = encoder.encode(JSON.stringify(payload));
+    req.type = type;
     if (maxAttempts !== undefined) {
       req.maxAttempts = maxAttempts;
     }
     const res = await client.submitJob(req);
-    return res.jobId;
+    return res.jobId as JobId;
   }
 
   async claimJob(
-    workerId: string,
-  ): Promise<{ jobId: string; payload: unknown } | null> {
+    workerId: WorkerId,
+    types?: (string & keyof R)[],
+  ): Promise<{ jobId: JobId; type: string; payload: unknown } | null> {
     const client = await this.getClient();
     const req = create(ClaimJobRequestSchema);
     req.workerId = workerId;
+    if (types && types.length > 0) {
+      req.types = types;
+    }
     const res = await client.claimJob(req);
     if (!res.jobId) return null;
     return {
-      jobId: res.jobId,
+      jobId: res.jobId as JobId,
+      type: res.type,
       payload: res.payload ? JSON.parse(decoder.decode(res.payload)) : null,
     };
   }
 
-  async heartbeat(jobId: string, workerId: string): Promise<void> {
+  async heartbeat(jobId: JobId, workerId: WorkerId): Promise<void> {
     const client = await this.getClient();
     const req = create(HeartbeatRequestSchema);
     req.jobId = jobId;
@@ -131,7 +149,7 @@ export class OsqueueClient {
     await client.heartbeat(req);
   }
 
-  async completeJob(jobId: string, workerId: string): Promise<void> {
+  async completeJob(jobId: JobId, workerId: WorkerId): Promise<void> {
     const client = await this.getClient();
     const req = create(CompleteJobRequestSchema);
     req.jobId = jobId;
@@ -143,5 +161,11 @@ export class OsqueueClient {
     const client = await this.getClient();
     const req = create(GetStatsRequestSchema);
     return await client.getStats(req);
+  }
+
+  async listJobs(): Promise<ListJobsResponse> {
+    const client = await this.getClient();
+    const req = create(ListJobsRequestSchema);
+    return await client.listJobs(req);
   }
 }

@@ -8,12 +8,14 @@ service QueueService {
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
   rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
 }
 
 message SubmitJobRequest {
   // JSON-encoded payload
   bytes payload = 1;
   optional int32 max_attempts = 2;
+  string type = 3;
 }
 
 message SubmitJobResponse {
@@ -22,12 +24,14 @@ message SubmitJobResponse {
 
 message ClaimJobRequest {
   string worker_id = 1;
+  repeated string types = 2;
 }
 
 message ClaimJobResponse {
   // Empty if no jobs available
   optional string job_id = 1;
   optional bytes payload = 2;
+  string type = 3;
 }
 
 message HeartbeatRequest {
@@ -51,4 +55,27 @@ message GetStatsResponse {
   int32 unclaimed = 2;
   int32 in_progress = 3;
   string broker_address = 4;
+}
+
+message ListJobsRequest {}
+
+message JobInfo {
+  string id = 1;
+  string status = 2;
+  bytes payload = 3;
+  string type = 4;
+  string worker_id = 5;
+  int64 created_at = 6;
+  int32 attempts = 7;
+  int32 max_attempts = 8;
+  int64 heartbeat = 9;
+}
+
+message ListJobsResponse {
+  repeated JobInfo jobs = 1;
+  int32 total = 2;
+  int32 unclaimed = 3;
+  int32 in_progress = 4;
+  int32 completed_total = 5;
+  string broker_address = 6;
 }

@@ -9,7 +9,9 @@ import {
   registerBroker,
   applyMutation,
 } from "../src/state.js";
-import type { QueueState } from "@osqueue/types";
+import type { QueueState, WorkerId } from "@osqueue/types";
+
+const wid = (s: string) => s as WorkerId;
 
 describe("state transitions", () => {
   test("emptyState creates valid initial state", () => {
@@ -17,6 +19,7 @@ describe("state transitions", () => {
     expect(state.broker).toBeNull();
     expect(state.brokerHeartbeat).toBe(0);
     expect(state.jobs).toEqual([]);
+    expect(state.completedTotal).toBe(0);
   });
 
   describe("enqueueJobs", () => {
@@ -47,6 +50,17 @@ describe("state transitions", () => {
       ]);
       expect(state.jobs[0]!.maxAttempts).toBe(5);
     });
+
+    test("stores type on jobs", () => {
+      const { state } = enqueueJobs(emptyState(), [
+        { payload: "a", jobType: "email" },
+        { payload: "b", jobType: "sms" },
+        { payload: "c" },
+      ], 1000);
+      expect(state.jobs[0]!.type).toBe("email");
+      expect(state.jobs[1]!.type).toBe("sms");
+      expect(state.jobs[2]!.type).toBeUndefined();
+    });
   });
 
   describe("claimJob", () => {
@@ -55,7 +69,7 @@ describe("state transitions", () => {
         { payload: "a" },
         { payload: "b" },
       ], 1000);
-      const { state: s2, claimed } = claimJob(s1, "worker-1", 2000);
+      const { state: s2, claimed } = claimJob(s1, wid("worker-1"), 2000);
       expect(claimed).not.toBeNull();
       expect(claimed!.payload).toBe("a");
       expect(s2.jobs[0]!.status).toBe("in_progress");
@@ -68,8 +82,8 @@ describe("state transitions", () => {
 
     test("returns null when no unclaimed jobs", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const { state: s2 } = claimJob(s1, "worker-1", 2000);
-      const { claimed } = claimJob(s2, "worker-2", 3000);
+      const { state: s2 } = claimJob(s1, wid("worker-1"), 2000);
+      const { claimed } = claimJob(s2, wid("worker-2"), 3000);
       expect(claimed).toBeNull();
     });
 
@@ -78,56 +92,96 @@ describe("state transitions", () => {
         { payload: "a" },
         { payload: "b" },
       ], 1000);
-      const { state: s2 } = claimJob(s1, "worker-1", 2000);
-      const { claimed } = claimJob(s2, "worker-2", 3000);
+      const { state: s2 } = claimJob(s1, wid("worker-1"), 2000);
+      const { claimed } = claimJob(s2, wid("worker-2"), 3000);
       expect(claimed!.payload).toBe("b");
+    });
+
+    test("filters by jobTypes", () => {
+      const { state: s1 } = enqueueJobs(emptyState(), [
+        { payload: "email-job", jobType: "email" },
+        { payload: "sms-job", jobType: "sms" },
+      ], 1000);
+      const { claimed } = claimJob(s1, wid("worker-1"), 2000, ["sms"]);
+      expect(claimed).not.toBeNull();
+      expect(claimed!.payload).toBe("sms-job");
+      expect(claimed!.type).toBe("sms");
+    });
+
+    test("skips untyped jobs when jobTypes filter is set", () => {
+      const { state: s1 } = enqueueJobs(emptyState(), [
+        { payload: "untyped" },
+        { payload: "typed", jobType: "email" },
+      ], 1000);
+      const { claimed } = claimJob(s1, wid("worker-1"), 2000, ["email"]);
+      expect(claimed).not.toBeNull();
+      expect(claimed!.payload).toBe("typed");
+    });
+
+    test("claims any job when no jobTypes filter", () => {
+      const { state: s1 } = enqueueJobs(emptyState(), [
+        { payload: "typed", jobType: "email" },
+        { payload: "untyped" },
+      ], 1000);
+      const { claimed } = claimJob(s1, wid("worker-1"), 2000);
+      expect(claimed).not.toBeNull();
+      expect(claimed!.payload).toBe("typed");
+    });
+
+    test("returns null when no jobs match filter", () => {
+      const { state: s1 } = enqueueJobs(emptyState(), [
+        { payload: "email-job", jobType: "email" },
+      ], 1000);
+      const { claimed } = claimJob(s1, wid("worker-1"), 2000, ["sms"]);
+      expect(claimed).toBeNull();
     });
   });
 
   describe("heartbeatJob", () => {
     test("updates heartbeat timestamp", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const { state: s2, claimed } = claimJob(s1, "worker-1", 2000);
-      const s3 = heartbeatJob(s2, claimed!.id, "worker-1", 5000);
+      const { state: s2, claimed } = claimJob(s1, wid("worker-1"), 2000);
+      const s3 = heartbeatJob(s2, claimed!.id, wid("worker-1"), 5000);
       expect(s3.jobs[0]!.heartbeat).toBe(5000);
     });
 
     test("no-op for wrong worker", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const { state: s2, claimed } = claimJob(s1, "worker-1", 2000);
-      const s3 = heartbeatJob(s2, claimed!.id, "worker-wrong", 5000);
+      const { state: s2, claimed } = claimJob(s1, wid("worker-1"), 2000);
+      const s3 = heartbeatJob(s2, claimed!.id, wid("worker-wrong"), 5000);
       expect(s3.jobs[0]!.heartbeat).toBe(2000); // unchanged
     });
 
     test("no-op for unclaimed job", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const s2 = heartbeatJob(s1, s1.jobs[0]!.id, "worker-1", 5000);
+      const s2 = heartbeatJob(s1, s1.jobs[0]!.id, wid("worker-1"), 5000);
       expect(s2.jobs[0]!.heartbeat).toBeUndefined();
     });
   });
 
   describe("completeJob", () => {
-    test("removes completed job from array", () => {
+    test("removes completed job from array and increments completedTotal", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [
         { payload: "a" },
         { payload: "b" },
       ], 1000);
-      const { state: s2, claimed } = claimJob(s1, "worker-1", 2000);
-      const s3 = completeJob(s2, claimed!.id, "worker-1");
+      const { state: s2, claimed } = claimJob(s1, wid("worker-1"), 2000);
+      const s3 = completeJob(s2, claimed!.id, wid("worker-1"));
       expect(s3.jobs).toHaveLength(1);
       expect(s3.jobs[0]!.payload).toBe("b");
+      expect(s3.completedTotal).toBe(1);
     });
 
     test("no-op for wrong worker", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const { state: s2, claimed } = claimJob(s1, "worker-1", 2000);
-      const s3 = completeJob(s2, claimed!.id, "wrong-worker");
+      const { state: s2, claimed } = claimJob(s1, wid("worker-1"), 2000);
+      const s3 = completeJob(s2, claimed!.id, wid("wrong-worker"));
       expect(s3.jobs).toHaveLength(1);
     });
 
     test("no-op for unclaimed job", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const s2 = completeJob(s1, s1.jobs[0]!.id, "worker-1");
+      const s2 = completeJob(s1, s1.jobs[0]!.id, wid("worker-1"));
       expect(s2.jobs).toHaveLength(1);
     });
   });
@@ -135,7 +189,7 @@ describe("state transitions", () => {
   describe("expireHeartbeats", () => {
     test("resets expired in_progress jobs to unclaimed", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const { state: s2 } = claimJob(s1, "worker-1", 2000);
+      const { state: s2 } = claimJob(s1, wid("worker-1"), 2000);
       // 35s later, with default 30s timeout
       const s3 = expireHeartbeats(s2, 37_000, 30_000);
       expect(s3.jobs[0]!.status).toBe("unclaimed");
@@ -145,7 +199,7 @@ describe("state transitions", () => {
 
     test("does not expire jobs within timeout", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "a" }], 1000);
-      const { state: s2 } = claimJob(s1, "worker-1", 2000);
+      const { state: s2 } = claimJob(s1, wid("worker-1"), 2000);
       const s3 = expireHeartbeats(s2, 20_000, 30_000);
       expect(s3.jobs[0]!.status).toBe("in_progress");
     });
@@ -154,7 +208,7 @@ describe("state transitions", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [
         { payload: "a", maxAttempts: 1 },
       ], 1000);
-      const { state: s2 } = claimJob(s1, "worker-1", 2000);
+      const { state: s2 } = claimJob(s1, wid("worker-1"), 2000);
       // Job has attempts=1, maxAttempts=1 → should be dropped
       const s3 = expireHeartbeats(s2, 37_000, 30_000);
       expect(s3.jobs).toHaveLength(0);
@@ -164,7 +218,7 @@ describe("state transitions", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [
         { payload: "a", maxAttempts: 3 },
       ], 1000);
-      const { state: s2 } = claimJob(s1, "worker-1", 2000);
+      const { state: s2 } = claimJob(s1, wid("worker-1"), 2000);
       // attempts=1, maxAttempts=3 → should reset
       const s3 = expireHeartbeats(s2, 37_000, 30_000);
       expect(s3.jobs[0]!.status).toBe("unclaimed");
@@ -200,7 +254,7 @@ describe("state transitions", () => {
       const { state: s1 } = enqueueJobs(emptyState(), [{ payload: "x" }], 1000);
       const { result } = applyMutation(s1, {
         type: "claim",
-        workerId: "w1",
+        workerId: wid("w1"),
       }, 2000);
       expect(result.claimedJob).not.toBeNull();
       expect(result.claimedJob!.payload).toBe("x");
@@ -209,7 +263,7 @@ describe("state transitions", () => {
     test("claim mutation returns null when empty", () => {
       const { result } = applyMutation(emptyState(), {
         type: "claim",
-        workerId: "w1",
+        workerId: wid("w1"),
       });
       expect(result.claimedJob).toBeNull();
     });

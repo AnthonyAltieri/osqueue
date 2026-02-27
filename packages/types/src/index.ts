@@ -1,3 +1,11 @@
+// ── Branded type utilities ──
+
+declare const brand: unique symbol;
+export type Brand<T, B> = T & { [brand]: B };
+
+export type JobId = Brand<string, "JobId">;
+export type WorkerId = Brand<string, "WorkerId">;
+
 // ── Storage types ──
 
 /** Opaque version token wrapping S3 ETags or GCS generation numbers */
@@ -47,11 +55,12 @@ export class CASConflictError extends Error {
 export type JobStatus = "unclaimed" | "in_progress";
 
 export interface Job {
-  id: string;
+  id: JobId;
   status: JobStatus;
   payload: unknown;
+  type?: string;
   heartbeat?: number;
-  workerId?: string;
+  workerId?: WorkerId;
   createdAt: number;
   attempts: number;
   maxAttempts?: number;
@@ -64,15 +73,17 @@ export interface QueueState {
   brokerHeartbeat: number;
   /** Ordered job array, FIFO */
   jobs: Job[];
+  /** Running count of completed jobs */
+  completedTotal: number;
 }
 
 // ── Mutation types ──
 
 export type Mutation =
-  | { type: "enqueue"; jobs: Array<{ payload: unknown; maxAttempts?: number }> }
-  | { type: "claim"; workerId: string }
-  | { type: "heartbeat"; jobId: string; workerId: string }
-  | { type: "complete"; jobId: string; workerId: string }
+  | { type: "enqueue"; jobs: Array<{ payload: unknown; jobType?: string; maxAttempts?: number }> }
+  | { type: "claim"; workerId: WorkerId; jobTypes?: string[] }
+  | { type: "heartbeat"; jobId: JobId; workerId: WorkerId }
+  | { type: "complete"; jobId: JobId; workerId: WorkerId }
   | {
       type: "register_broker";
       brokerAddress: string;
@@ -81,9 +92,9 @@ export type Mutation =
 
 export interface MutationResult {
   /** For claim mutations, the claimed job (if any) */
-  claimedJob?: { id: string; payload: unknown } | null;
+  claimedJob?: { id: JobId; payload: unknown; type?: string } | null;
   /** For enqueue mutations, the IDs of enqueued jobs */
-  enqueuedIds?: string[];
+  enqueuedIds?: JobId[];
 }
 
 // ── Constants ──

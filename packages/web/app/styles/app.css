@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Syne", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  --color-void: #08080e;
+  --color-surface-0: #0e0e16;
+  --color-surface-1: #151522;
+  --color-surface-2: #1c1c2e;
+  --color-border: #2a2a40;
+  --color-border-subtle: #1e1e32;
+
+  --color-text: #e8e8f4;
+  --color-text-muted: #8888a0;
+  --color-text-dim: #505070;
+
+  --color-green: #34d399;
+  --color-green-dim: #065f46;
+  --color-amber: #fbbf24;
+  --color-amber-dim: #78350f;
+  --color-cyan: #22d3ee;
+  --color-cyan-dim: #164e63;
+  --color-red: #f87171;
+  --color-red-dim: #7f1d1d;
+  --color-purple: #a78bfa;
+  --color-purple-dim: #4c1d95;
+}
+
+/* ── Base ── */
+
+html {
+  background-color: var(--color-void);
+  color: var(--color-text);
+}
+
+body {
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  background-color: var(--color-void);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* ── Animations ── */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes count-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.25s ease-out;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.animate-count-pop {
+  animation: count-pop 0.3s ease-out;
+}
+
+/* ── Progress bar ── */
+
+.progress-bar {
+  background: linear-gradient(
+    90deg,
+    var(--color-amber) 0%,
+    var(--color-amber) 50%,
+    rgba(251, 191, 36, 0.5) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s linear infinite;
+}
+
+/* ── Scrollbar ── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-dim);
+}
+
+/* ── Selection ── */
+
+::selection {
+  background: var(--color-purple-dim);
+  color: var(--color-purple);
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@osqueue/example",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "broker": "bun run src/broker.ts",
+    "producer": "bun run src/producer.ts",
+    "worker": "bun run src/worker.ts"
+  },
+  "dependencies": {
+    "@osqueue/broker": "workspace:*",
+    "@osqueue/client": "workspace:*",
+    "@osqueue/storage": "workspace:*",
+    "@osqueue/types": "workspace:*",
+    "@t3-oss/env-core": "^0.11.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/bun": "latest"
+  }
+}

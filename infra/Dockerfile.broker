@@ -1,0 +1,23 @@
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Copy workspace root
+COPY package.json bun.lock* ./
+COPY packages/types/package.json packages/types/
+COPY packages/storage/package.json packages/storage/
+COPY packages/proto/package.json packages/proto/
+COPY packages/core/package.json packages/core/
+COPY packages/client/package.json packages/client/
+COPY packages/broker/package.json packages/broker/
+COPY apps/package.json apps/
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source
+COPY packages/ packages/
+COPY apps/ apps/
+
+EXPOSE 8080
+
+CMD ["bun", "run", "apps/src/broker.ts"]

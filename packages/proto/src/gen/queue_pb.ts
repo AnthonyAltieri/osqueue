@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file queue.proto.
  */
 export const file_queue: GenFile = /*@__PURE__*/
-  fileDesc("CgtxdWV1ZS5wcm90bxIKb3NxdWV1ZS52MSJPChBTdWJtaXRKb2JSZXF1ZXN0Eg8KB3BheWxvYWQYASABKAwSGQoMbWF4X2F0dGVtcHRzGAIgASgFSACIAQFCDwoNX21heF9hdHRlbXB0cyIjChFTdWJtaXRKb2JSZXNwb25zZRIOCgZqb2JfaWQYASABKAkiJAoPQ2xhaW1Kb2JSZXF1ZXN0EhEKCXdvcmtlcl9pZBgBIAEoCSJUChBDbGFpbUpvYlJlc3BvbnNlEhMKBmpvYl9pZBgBIAEoCUgAiAEBEhQKB3BheWxvYWQYAiABKAxIAYgBAUIJCgdfam9iX2lkQgoKCF9wYXlsb2FkIjUKEEhlYXJ0YmVhdFJlcXVlc3QSDgoGam9iX2lkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSITChFIZWFydGJlYXRSZXNwb25zZSI3ChJDb21wbGV0ZUpvYlJlcXVlc3QSDgoGam9iX2lkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSIVChNDb21wbGV0ZUpvYlJlc3BvbnNlIhEKD0dldFN0YXRzUmVxdWVzdCJhChBHZXRTdGF0c1Jlc3BvbnNlEg0KBXRvdGFsGAEgASgFEhEKCXVuY2xhaW1lZBgCIAEoBRITCgtpbl9wcm9ncmVzcxgDIAEoBRIWCg5icm9rZXJfYWRkcmVzcxgEIAEoCTKAAwoMUXVldWVTZXJ2aWNlEkgKCVN1Ym1pdEpvYhIcLm9zcXVldWUudjEuU3VibWl0Sm9iUmVxdWVzdBodLm9zcXVldWUudjEuU3VibWl0Sm9iUmVzcG9uc2USRQoIQ2xhaW1Kb2ISGy5vc3F1ZXVlLnYxLkNsYWltSm9iUmVxdWVzdBocLm9zcXVldWUudjEuQ2xhaW1Kb2JSZXNwb25zZRJICglIZWFydGJlYXQSHC5vc3F1ZXVlLnYxLkhlYXJ0YmVhdFJlcXVlc3QaHS5vc3F1ZXVlLnYxLkhlYXJ0YmVhdFJlc3BvbnNlEk4KC0NvbXBsZXRlSm9iEh4ub3NxdWV1ZS52MS5Db21wbGV0ZUpvYlJlcXVlc3QaHy5vc3F1ZXVlLnYxLkNvbXBsZXRlSm9iUmVzcG9uc2USRQoIR2V0U3RhdHMSGy5vc3F1ZXVlLnYxLkdldFN0YXRzUmVxdWVzdBocLm9zcXVldWUudjEuR2V0U3RhdHNSZXNwb25zZWIGcHJvdG8z");
+  fileDesc("CgtxdWV1ZS5wcm90bxIKb3NxdWV1ZS52MSJdChBTdWJtaXRKb2JSZXF1ZXN0Eg8KB3BheWxvYWQYASABKAwSGQoMbWF4X2F0dGVtcHRzGAIgASgFSACIAQESDAoEdHlwZRgDIAEoCUIPCg1fbWF4X2F0dGVtcHRzIiMKEVN1Ym1pdEpvYlJlc3BvbnNlEg4KBmpvYl9pZBgBIAEoCSIzCg9DbGFpbUpvYlJlcXVlc3QSEQoJd29ya2VyX2lkGAEgASgJEg0KBXR5cGVzGAIgAygJImIKEENsYWltSm9iUmVzcG9uc2USEwoGam9iX2lkGAEgASgJSACIAQESFAoHcGF5bG9hZBgCIAEoDEgBiAEBEgwKBHR5cGUYAyABKAlCCQoHX2pvYl9pZEIKCghfcGF5bG9hZCI1ChBIZWFydGJlYXRSZXF1ZXN0Eg4KBmpvYl9pZBgBIAEoCRIRCgl3b3JrZXJfaWQYAiABKAkiEwoRSGVhcnRiZWF0UmVzcG9uc2UiNwoSQ29tcGxldGVKb2JSZXF1ZXN0Eg4KBmpvYl9pZBgBIAEoCRIRCgl3b3JrZXJfaWQYAiABKAkiFQoTQ29tcGxldGVKb2JSZXNwb25zZSIRCg9HZXRTdGF0c1JlcXVlc3QiYQoQR2V0U3RhdHNSZXNwb25zZRINCgV0b3RhbBgBIAEoBRIRCgl1bmNsYWltZWQYAiABKAUSEwoLaW5fcHJvZ3Jlc3MYAyABKAUSFgoOYnJva2VyX2FkZHJlc3MYBCABKAkiEQoPTGlzdEpvYnNSZXF1ZXN0IqYBCgdKb2JJbmZvEgoKAmlkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIPCgdwYXlsb2FkGAMgASgMEgwKBHR5cGUYBCABKAkSEQoJd29ya2VyX2lkGAUgASgJEhIKCmNyZWF0ZWRfYXQYBiABKAMSEAoIYXR0ZW1wdHMYByABKAUSFAoMbWF4X2F0dGVtcHRzGAggASgFEhEKCWhlYXJ0YmVhdBgJIAEoAyKdAQoQTGlzdEpvYnNSZXNwb25zZRIhCgRqb2JzGAEgAygLMhMub3NxdWV1ZS52MS5Kb2JJbmZvEg0KBXRvdGFsGAIgASgFEhEKCXVuY2xhaW1lZBgDIAEoBRITCgtpbl9wcm9ncmVzcxgEIAEoBRIXCg9jb21wbGV0ZWRfdG90YWwYBSABKAUSFgoOYnJva2VyX2FkZHJlc3MYBiABKAkyxwMKDFF1ZXVlU2VydmljZRJICglTdWJtaXRKb2ISHC5vc3F1ZXVlLnYxLlN1Ym1pdEpvYlJlcXVlc3QaHS5vc3F1ZXVlLnYxLlN1Ym1pdEpvYlJlc3BvbnNlEkUKCENsYWltSm9iEhsub3NxdWV1ZS52MS5DbGFpbUpvYlJlcXVlc3QaHC5vc3F1ZXVlLnYxLkNsYWltSm9iUmVzcG9uc2USSAoJSGVhcnRiZWF0Ehwub3NxdWV1ZS52MS5IZWFydGJlYXRSZXF1ZXN0Gh0ub3NxdWV1ZS52MS5IZWFydGJlYXRSZXNwb25zZRJOCgtDb21wbGV0ZUpvYhIeLm9zcXVldWUudjEuQ29tcGxldGVKb2JSZXF1ZXN0Gh8ub3NxdWV1ZS52MS5Db21wbGV0ZUpvYlJlc3BvbnNlEkUKCEdldFN0YXRzEhsub3NxdWV1ZS52MS5HZXRTdGF0c1JlcXVlc3QaHC5vc3F1ZXVlLnYxLkdldFN0YXRzUmVzcG9uc2USRQoITGlzdEpvYnMSGy5vc3F1ZXVlLnYxLkxpc3RKb2JzUmVxdWVzdBocLm9zcXVldWUudjEuTGlzdEpvYnNSZXNwb25zZWIGcHJvdG8z");
 
 /**
  * @generated from message osqueue.v1.SubmitJobRequest
@@ -27,6 +27,11 @@ export type SubmitJobRequest = Message<"osqueue.v1.SubmitJobRequest"> & {
    * @generated from field: optional int32 max_attempts = 2;
    */
   maxAttempts?: number;
+
+  /**
+   * @generated from field: string type = 3;
+   */
+  type: string;
 };
 
 /**
@@ -61,6 +66,11 @@ export type ClaimJobRequest = Message<"osqueue.v1.ClaimJobRequest"> & {
    * @generated from field: string worker_id = 1;
    */
   workerId: string;
+
+  /**
+   * @generated from field: repeated string types = 2;
+   */
+  types: string[];
 };
 
 /**
@@ -85,6 +95,11 @@ export type ClaimJobResponse = Message<"osqueue.v1.ClaimJobResponse"> & {
    * @generated from field: optional bytes payload = 2;
    */
   payload?: Uint8Array;
+
+  /**
+   * @generated from field: string type = 3;
+   */
+  type: string;
 };
 
 /**
@@ -210,6 +225,118 @@ export const GetStatsResponseSchema: GenMessage<GetStatsResponse> = /*@__PURE__*
   messageDesc(file_queue, 9);
 
 /**
+ * @generated from message osqueue.v1.ListJobsRequest
+ */
+export type ListJobsRequest = Message<"osqueue.v1.ListJobsRequest"> & {
+};
+
+/**
+ * Describes the message osqueue.v1.ListJobsRequest.
+ * Use `create(ListJobsRequestSchema)` to create a new message.
+ */
+export const ListJobsRequestSchema: GenMessage<ListJobsRequest> = /*@__PURE__*/
+  messageDesc(file_queue, 10);
+
+/**
+ * @generated from message osqueue.v1.JobInfo
+ */
+export type JobInfo = Message<"osqueue.v1.JobInfo"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string status = 2;
+   */
+  status: string;
+
+  /**
+   * @generated from field: bytes payload = 3;
+   */
+  payload: Uint8Array;
+
+  /**
+   * @generated from field: string type = 4;
+   */
+  type: string;
+
+  /**
+   * @generated from field: string worker_id = 5;
+   */
+  workerId: string;
+
+  /**
+   * @generated from field: int64 created_at = 6;
+   */
+  createdAt: bigint;
+
+  /**
+   * @generated from field: int32 attempts = 7;
+   */
+  attempts: number;
+
+  /**
+   * @generated from field: int32 max_attempts = 8;
+   */
+  maxAttempts: number;
+
+  /**
+   * @generated from field: int64 heartbeat = 9;
+   */
+  heartbeat: bigint;
+};
+
+/**
+ * Describes the message osqueue.v1.JobInfo.
+ * Use `create(JobInfoSchema)` to create a new message.
+ */
+export const JobInfoSchema: GenMessage<JobInfo> = /*@__PURE__*/
+  messageDesc(file_queue, 11);
+
+/**
+ * @generated from message osqueue.v1.ListJobsResponse
+ */
+export type ListJobsResponse = Message<"osqueue.v1.ListJobsResponse"> & {
+  /**
+   * @generated from field: repeated osqueue.v1.JobInfo jobs = 1;
+   */
+  jobs: JobInfo[];
+
+  /**
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * @generated from field: int32 unclaimed = 3;
+   */
+  unclaimed: number;
+
+  /**
+   * @generated from field: int32 in_progress = 4;
+   */
+  inProgress: number;
+
+  /**
+   * @generated from field: int32 completed_total = 5;
+   */
+  completedTotal: number;
+
+  /**
+   * @generated from field: string broker_address = 6;
+   */
+  brokerAddress: string;
+};
+
+/**
+ * Describes the message osqueue.v1.ListJobsResponse.
+ * Use `create(ListJobsResponseSchema)` to create a new message.
+ */
+export const ListJobsResponseSchema: GenMessage<ListJobsResponse> = /*@__PURE__*/
+  messageDesc(file_queue, 12);
+
+/**
  * @generated from service osqueue.v1.QueueService
  */
 export const QueueService: GenService<{
@@ -252,6 +379,14 @@ export const QueueService: GenService<{
     methodKind: "unary";
     input: typeof GetStatsRequestSchema;
     output: typeof GetStatsResponseSchema;
+  },
+  /**
+   * @generated from rpc osqueue.v1.QueueService.ListJobs
+   */
+  listJobs: {
+    methodKind: "unary";
+    input: typeof ListJobsRequestSchema;
+    output: typeof ListJobsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_queue, 0);
