@@ -57,3 +57,9 @@ Implement the approved repo restructure, Node-compatible runtime/tooling, linked
 - [x] Add root `LICENSE` file with MIT text
 - [x] Ensure all local `package.json` files declare `license: "MIT"`
 - [x] Add inspiration citation to Turbopuffer object-storage queue blog in docs
+
+## Follow-up: Release Automation
+- [x] Add `.github/workflows/release.yml` using Changesets on `main`
+- [x] Configure workflow permissions for npm trusted publishing (`id-token: write`)
+- [x] Create `npm-release` GitHub environment
+- [x] Add required reviewer protection for `AnthonyAltieri`
