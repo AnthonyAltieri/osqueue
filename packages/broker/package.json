@@ -1,25 +1,40 @@
 {
   "name": "@osqueue/broker",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --target node20 --clean",
+    "test": "vitest run test/**/*.test.ts"
   },
   "dependencies": {
-    "@osqueue/types": "workspace:*",
-    "@osqueue/storage": "workspace:*",
-    "@osqueue/core": "workspace:*",
-    "@osqueue/proto": "workspace:*",
     "@bufbuild/protobuf": "^2.0.0",
     "@connectrpc/connect": "^2.0.0",
-    "@connectrpc/connect-node": "^2.0.0",
     "@connectrpc/connect-fastify": "^2.0.0",
+    "@connectrpc/connect-node": "^2.0.0",
     "@fastify/cors": "^10.0.0",
+    "@fastify/websocket": "^11.2.0",
+    "@osqueue/core": "workspace:*",
+    "@osqueue/proto": "workspace:*",
+    "@osqueue/storage": "workspace:*",
+    "@osqueue/types": "workspace:*",
     "fastify": "^5.0.0"
   },
   "devDependencies": {
+    "@osqueue/worker": "workspace:*",
     "typescript": "^5.7.0",
-    "@types/bun": "latest"
+    "ws": "^8.18.0"
   }
 }

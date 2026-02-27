@@ -34,7 +34,7 @@ export default $config({
         BROKER_PORT: "8080",
       },
       dev: {
-        command: "bun run apps/src/broker.ts",
+        command: "bun run --cwd apps/osqueue broker",
       },
     });
 
@@ -43,7 +43,7 @@ export default $config({
       : `http://${process.env.DEV_HOST ?? "localhost"}:8080`;
 
     const web = new sst.aws.TanStackStart("Web", {
-      path: "packages/web/",
+      path: "apps/web/",
       link: [bucket],
       environment: {
         VITE_BROKER_URL: brokerUrl,

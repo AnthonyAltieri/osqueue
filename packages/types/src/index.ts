@@ -42,13 +42,32 @@ export interface StorageBackend {
 }
 
 // ── Error classes ──
-
-export class CASConflictError extends Error {
-  constructor(message = "CAS conflict: version mismatch") {
-    super(message);
-    this.name = "CASConflictError";
-  }
-}
+export {
+  TaggedError,
+  type AnyTaggedError,
+  type OsqueueError,
+  type OsqueueErrorTag,
+  isTaggedError,
+  isOsqueueError,
+  getErrorMessage,
+  wrapUnknownError,
+  CASConflictError,
+  ConfigError,
+  DiscoveryError,
+  TransportConfigError,
+  TransportRequestError,
+  TransportConnectionError,
+  StorageBackendError,
+  BrokerLeadershipError,
+  BrokerProtocolError,
+  EngineStateError,
+  WorkerExecutionError,
+} from "./errors.js";
+export type {
+  TransportRequestErrorOptions,
+  BrokerLeadershipErrorOptions,
+  BrokerProtocolErrorOptions,
+} from "./errors.js";
 
 // ── Queue state types ──
 

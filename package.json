@@ -1,16 +1,30 @@
 {
   "name": "osqueue",
   "private": true,
-  "workspaces": ["packages/*", "apps"],
+  "license": "MIT",
+  "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt --write .",
-    "fmt:check": "oxfmt --check ."
+    "fmt:check": "oxfmt --check .",
+    "build:packages": "bun run --filter @osqueue/types build && bun run --filter @osqueue/proto build && bun run --filter @osqueue/storage build && bun run --filter @osqueue/core build && bun run --filter @osqueue/client build && bun run --filter @osqueue/worker build && bun run --filter @osqueue/broker build",
+    "build": "bun run build:packages && bun run --filter @osqueue/example build && bun run --filter @osqueue/web build",
+    "test": "bun run build:packages && vitest run",
+    "test:watch": "vitest",
+    "changeset": "changeset",
+    "release:version": "changeset version",
+    "release:publish": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@types/node": "^22.15.21",
+    "@types/ws": "^8.18.1",
     "oxfmt": "^0.34.0",
     "oxlint": "^1.49.0",
-    "sst": "^3.0.0"
+    "sst": "^3.0.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

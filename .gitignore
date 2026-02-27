@@ -7,3 +7,4 @@ bun.lock
 sst-env.d.ts
 .env
 app.config.timestamp_*
+tasks/

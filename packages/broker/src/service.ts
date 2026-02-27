@@ -11,110 +11,98 @@ import {
   JobInfoSchema,
 } from "@osqueue/proto";
 import type { GroupCommitEngine } from "@osqueue/core";
-import type { JobId, WorkerId } from "@osqueue/types";
-
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
+import {
+  claimJobOperation,
+  completeJobOperation,
+  decodePayload,
+  encodePayload,
+  getQueueSnapshot,
+  getQueueStats,
+  heartbeatOperation,
+  submitJobOperation,
+} from "./operations.js";
 
 export function createQueueServiceImpl(
   engine: GroupCommitEngine,
 ): ServiceImpl<typeof QueueService> {
   return {
     async submitJob(req) {
-      const payload = JSON.parse(decoder.decode(req.payload));
-      const result = await engine.submit({
-        type: "enqueue",
-        jobs: [
-          {
-            payload,
-            jobType: req.type || undefined,
-            maxAttempts: req.maxAttempts ?? undefined,
-          },
-        ],
+      const payload = decodePayload(req.payload);
+      const result = await submitJobOperation(engine, {
+        payload,
+        type: req.type || undefined,
+        maxAttempts: req.maxAttempts ?? undefined,
       });
+
       const response = create(SubmitJobResponseSchema);
-      response.jobId = result.enqueuedIds![0]!;
+      response.jobId = result.jobId;
       return response;
     },
 
     async claimJob(req) {
-      const result = await engine.submit({
-        type: "claim",
-        workerId: req.workerId as WorkerId,
-        jobTypes: req.types.length > 0 ? req.types : undefined,
+      const result = await claimJobOperation(engine, {
+        workerId: req.workerId,
+        types: req.types,
       });
+
       const response = create(ClaimJobResponseSchema);
-      if (result.claimedJob) {
-        response.jobId = result.claimedJob.id;
-        response.payload = encoder.encode(
-          JSON.stringify(result.claimedJob.payload),
-        );
-        response.type = result.claimedJob.type ?? "";
+      if (result.jobId) {
+        response.jobId = result.jobId;
+        response.payload = encodePayload(result.payload ?? null);
+        response.type = result.type ?? "";
       }
       return response;
     },
 
     async heartbeat(req) {
-      await engine.submit({
-        type: "heartbeat",
-        jobId: req.jobId as JobId,
-        workerId: req.workerId as WorkerId,
+      await heartbeatOperation(engine, {
+        jobId: req.jobId,
+        workerId: req.workerId,
       });
       return create(HeartbeatResponseSchema);
     },
 
     async completeJob(req) {
-      await engine.submit({
-        type: "complete",
-        jobId: req.jobId as JobId,
-        workerId: req.workerId as WorkerId,
+      await completeJobOperation(engine, {
+        jobId: req.jobId,
+        workerId: req.workerId,
       });
       return create(CompleteJobResponseSchema);
     },
 
     async getStats() {
-      const state = engine.getCachedState();
+      const stats = getQueueStats(engine.getCachedState());
       const response = create(GetStatsResponseSchema);
-      if (state) {
-        response.total = state.jobs.length;
-        response.unclaimed = state.jobs.filter(
-          (j) => j.status === "unclaimed",
-        ).length;
-        response.inProgress = state.jobs.filter(
-          (j) => j.status === "in_progress",
-        ).length;
-        response.brokerAddress = state.broker ?? "";
-      }
+      response.total = stats.total;
+      response.unclaimed = stats.unclaimed;
+      response.inProgress = stats.inProgress;
+      response.brokerAddress = stats.brokerAddress;
       return response;
     },
 
     async listJobs() {
-      const state = engine.getCachedState();
+      const snapshot = getQueueSnapshot(engine);
       const response = create(ListJobsResponseSchema);
-      if (state) {
-        response.jobs = state.jobs.map((j) => {
-          const info = create(JobInfoSchema);
-          info.id = j.id;
-          info.status = j.status;
-          info.payload = encoder.encode(JSON.stringify(j.payload));
-          info.type = j.type ?? "";
-          info.workerId = j.workerId ?? "";
-          info.createdAt = BigInt(j.createdAt);
-          info.attempts = j.attempts;
-          info.maxAttempts = j.maxAttempts ?? 0;
-          info.heartbeat = BigInt(j.heartbeat ?? 0);
-          return info;
-        });
-        response.total = state.jobs.length;
-        response.unclaimed = state.jobs.filter(
-          (j) => j.status === "unclaimed",
-        ).length;
-        response.inProgress = state.jobs.filter(
-          (j) => j.status === "in_progress",
-        ).length;
-        response.completedTotal = state.completedTotal ?? 0;
-        response.brokerAddress = state.broker ?? "";
-      }
+
+      response.jobs = snapshot.jobs.map((job) => {
+        const info = create(JobInfoSchema);
+        info.id = job.id;
+        info.status = job.status;
+        info.payload = encodePayload(job.payload);
+        info.type = job.type ?? "";
+        info.workerId = job.workerId ?? "";
+        info.createdAt = BigInt(job.createdAt);
+        info.attempts = job.attempts;
+        info.maxAttempts = job.maxAttempts;
+        info.heartbeat = BigInt(job.heartbeat);
+        return info;
+      });
+
+      response.total = snapshot.stats.total;
+      response.unclaimed = snapshot.stats.unclaimed;
+      response.inProgress = snapshot.stats.inProgress;
+      response.completedTotal = snapshot.stats.completedTotal;
+      response.brokerAddress = snapshot.stats.brokerAddress;
       return response;
     },
   };

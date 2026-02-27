@@ -1,17 +1,29 @@
 {
   "name": "@osqueue/core",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --target node20 --clean",
+    "test": "vitest run test/**/*.test.ts"
   },
   "dependencies": {
-    "@osqueue/types": "workspace:*",
-    "@osqueue/storage": "workspace:*"
+    "@osqueue/storage": "workspace:*",
+    "@osqueue/types": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/bun": "latest"
+    "typescript": "^5.7.0"
   }
 }

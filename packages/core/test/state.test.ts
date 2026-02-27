@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import {
   emptyState,
   enqueueJobs,
@@ -9,7 +9,7 @@ import {
   registerBroker,
   applyMutation,
 } from "../src/state.js";
-import type { QueueState, WorkerId } from "@osqueue/types";
+import type { WorkerId } from "@osqueue/types";
 
 const wid = (s: string) => s as WorkerId;
 

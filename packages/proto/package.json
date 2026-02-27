@@ -1,13 +1,23 @@
 {
   "name": "@osqueue/proto",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/gen/queue_pb.ts"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
-    "generate": "buf generate"
+    "generate": "buf generate",
+    "build": "tsup src/index.ts --format esm --dts --target node20 --clean"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.0.0",
@@ -16,7 +26,6 @@
   "devDependencies": {
     "@bufbuild/buf": "^1.47.0",
     "@bufbuild/protoc-gen-es": "^2.0.0",
-    "typescript": "^5.7.0",
-    "@types/bun": "latest"
+    "typescript": "^5.7.0"
   }
 }
