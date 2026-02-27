@@ -11,7 +11,18 @@ import {
 } from "@osqueue/proto";
 import type { QueueTransportAdapter, WsTransportConfig } from "./types.js";
 
+const WS_RPC_METHODS = [
+  "submitJob",
+  "claimJob",
+  "heartbeat",
+  "completeJob",
+  "getStats",
+  "listJobs",
+] as const;
+type WsRpcMethod = (typeof WS_RPC_METHODS)[number];
+
 type PendingRequest = {
+  method: WsRpcMethod;
   resolve: (value: any) => void;
   reject: (error: TransportRequestError | TransportConnectionError) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -142,7 +153,7 @@ export function createWsAdapter(config: WsTransportConfig): QueueTransportAdapte
         new TransportRequestError(
           message.error?.message ?? "WebSocket request failed",
           {
-            method: typeof message.method === "string" ? message.method : undefined,
+            method: pendingRequest.method,
             remoteTag:
               typeof message.error?._tag === "string"
                 ? message.error._tag
@@ -153,7 +164,10 @@ export function createWsAdapter(config: WsTransportConfig): QueueTransportAdapte
     }
   };
 
-  const request = async <T>(method: string, params: Record<string, unknown>): Promise<T> => {
+  const request = async <T>(
+    method: WsRpcMethod,
+    params: Record<string, unknown>,
+  ): Promise<T> => {
     await ensureSocket();
     if (!socket) {
       throw new TransportConnectionError("WebSocket not connected");
@@ -172,7 +186,7 @@ export function createWsAdapter(config: WsTransportConfig): QueueTransportAdapte
         );
       }, timeoutMs);
 
-      pending.set(id, { resolve, reject, timer });
+      pending.set(id, { method, resolve, reject, timer });
       socket.send(payload);
     });
 
