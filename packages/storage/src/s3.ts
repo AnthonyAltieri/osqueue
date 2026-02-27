@@ -9,7 +9,11 @@ import type {
   StorageVersion,
   StorageReadResult,
 } from "@osqueue/types";
-import { CASConflictError } from "@osqueue/types";
+import {
+  CASConflictError,
+  StorageBackendError,
+  wrapUnknownError,
+} from "@osqueue/types";
 
 export interface S3BackendOptions {
   bucket: string;
@@ -49,7 +53,11 @@ export class S3Backend implements StorageBackend {
       if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
         return null;
       }
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) =>
+          new StorageBackendError(`S3 read failed: ${message}`, { cause }),
+      );
     }
   }
 
@@ -76,7 +84,11 @@ export class S3Backend implements StorageBackend {
       ) {
         throw new CASConflictError("S3 ETag mismatch");
       }
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) =>
+          new StorageBackendError(`S3 write failed: ${message}`, { cause }),
+      );
     }
   }
 
@@ -102,7 +114,11 @@ export class S3Backend implements StorageBackend {
       ) {
         throw new CASConflictError("S3 object already exists");
       }
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) =>
+          new StorageBackendError(`S3 create failed: ${message}`, { cause }),
+      );
     }
   }
 }

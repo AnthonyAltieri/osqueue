@@ -3,7 +3,11 @@ import type {
   StorageVersion,
   StorageReadResult,
 } from "@osqueue/types";
-import { CASConflictError } from "@osqueue/types";
+import {
+  CASConflictError,
+  StorageBackendError,
+  wrapUnknownError,
+} from "@osqueue/types";
 
 export interface MemoryBackendOptions {
   /** Artificial latency in ms added to each operation */
@@ -32,7 +36,13 @@ export class MemoryBackend implements StorageBackend {
 
   private async maybeDelay(): Promise<void> {
     if (this.options.failWith) {
-      throw this.options.failWith;
+      throw wrapUnknownError(
+        this.options.failWith,
+        (message, cause) =>
+          new StorageBackendError(`Memory backend failure: ${message}`, {
+            cause,
+          }),
+      );
     }
     if (this.options.latencyMs && this.options.latencyMs > 0) {
       await new Promise((r) => setTimeout(r, this.options.latencyMs));

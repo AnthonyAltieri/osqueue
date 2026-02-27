@@ -3,7 +3,11 @@ import type {
   StorageVersion,
   StorageReadResult,
 } from "@osqueue/types";
-import { CASConflictError } from "@osqueue/types";
+import {
+  CASConflictError,
+  StorageBackendError,
+  wrapUnknownError,
+} from "@osqueue/types";
 
 export interface GCSBackendOptions {
   bucket: string;
@@ -15,11 +19,21 @@ export class GCSBackend implements StorageBackend {
   private prefix: string;
 
   constructor(options: GCSBackendOptions) {
-    // Dynamic import to keep @google-cloud/storage optional
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { Storage } = require("@google-cloud/storage");
-    const storage = new Storage();
-    this.bucket = storage.bucket(options.bucket);
+    try {
+      // Dynamic import to keep @google-cloud/storage optional
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Storage } = require("@google-cloud/storage");
+      const storage = new Storage();
+      this.bucket = storage.bucket(options.bucket);
+    } catch (error) {
+      throw wrapUnknownError(
+        error,
+        (message, cause) =>
+          new StorageBackendError(`Failed to initialize GCS backend: ${message}`, {
+            cause,
+          }),
+      );
+    }
     this.prefix = options.prefix ?? "";
   }
 
@@ -38,7 +52,11 @@ export class GCSBackend implements StorageBackend {
       };
     } catch (err: any) {
       if (err.code === 404) return null;
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) =>
+          new StorageBackendError(`GCS read failed: ${message}`, { cause }),
+      );
     }
   }
 
@@ -62,7 +80,11 @@ export class GCSBackend implements StorageBackend {
       if (err.code === 412) {
         throw new CASConflictError("GCS generation mismatch");
       }
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) =>
+          new StorageBackendError(`GCS write failed: ${message}`, { cause }),
+      );
     }
   }
 
@@ -83,7 +105,11 @@ export class GCSBackend implements StorageBackend {
       if (err.code === 412) {
         throw new CASConflictError("GCS object already exists");
       }
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) =>
+          new StorageBackendError(`GCS create failed: ${message}`, { cause }),
+      );
     }
   }
 }

@@ -1,0 +1,26 @@
+{
+  "name": "@osqueue/example",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "broker": "tsx src/broker.ts",
+    "producer": "tsx src/producer.ts",
+    "worker": "tsx src/worker.ts",
+    "build": "tsup src/broker.ts src/producer.ts src/worker.ts --format esm --dts --target node20 --out-dir dist --clean"
+  },
+  "dependencies": {
+    "@osqueue/broker": "workspace:*",
+    "@osqueue/client": "workspace:*",
+    "@osqueue/storage": "workspace:*",
+    "@osqueue/types": "workspace:*",
+    "@osqueue/worker": "workspace:*",
+    "@t3-oss/env-core": "^0.11.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.7.0"
+  }
+}

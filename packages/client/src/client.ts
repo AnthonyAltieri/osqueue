@@ -1,46 +1,55 @@
-import { createClient, type Client, type Transport } from "@connectrpc/connect";
-import { create } from "@bufbuild/protobuf";
-import {
-  QueueService,
-  SubmitJobRequestSchema,
-  ClaimJobRequestSchema,
-  HeartbeatRequestSchema,
-  CompleteJobRequestSchema,
-  GetStatsRequestSchema,
-  ListJobsRequestSchema,
-} from "@osqueue/proto";
-import type {
-  GetStatsResponse,
-  ListJobsResponse,
-} from "@osqueue/proto";
+import type { Transport } from "@connectrpc/connect";
 import type { StorageBackend, QueueState, JobId, WorkerId } from "@osqueue/types";
-import { QUEUE_STATE_KEY } from "@osqueue/types";
+import { DiscoveryError, QUEUE_STATE_KEY } from "@osqueue/types";
 import { z } from "zod";
+import {
+  createConnectAdapter,
+  createRestAdapter,
+  createWsAdapter,
+  type BuiltinTransportConfig,
+  type QueueTransportAdapter,
+} from "./transports/index.js";
 
 export type JobTypeRegistry = Record<string, z.ZodType>;
 export type DefaultRegistry = Record<string, z.ZodType>;
 
 export interface OsqueueClientOptions {
-  /** Direct broker URL (e.g. "http://localhost:8080"). If provided, skips discovery. */
   brokerUrl?: string;
-  /** Storage backend for broker discovery from queue.json */
   storage?: StorageBackend;
-  /** Pre-built transport (e.g. from @connectrpc/connect-web for browsers) */
-  transport?: Transport;
-  /** How often to retry broker discovery (ms, default: 2000) */
+  transport?: Transport | BuiltinTransportConfig | QueueTransportAdapter;
   discoveryRetryMs?: number;
-  /** HTTP version for transport (default: "1.1") — only used when transport not provided */
   httpVersion?: "1.1" | "2";
 }
 
-const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+function isBuiltinTransportConfig(value: unknown): value is BuiltinTransportConfig {
+  return typeof value === "object" && value !== null && "kind" in value;
+}
+
+function isQueueTransportAdapter(value: unknown): value is QueueTransportAdapter {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "submitJob" in value &&
+    typeof (value as QueueTransportAdapter).submitJob === "function"
+  );
+}
+
+function isConnectTransport(value: unknown): value is Transport {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "unary" in value &&
+    typeof (value as Transport).unary === "function"
+  );
+}
+
 export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
-  private client: Client<typeof QueueService> | null = null;
+  private adapter: QueueTransportAdapter | null = null;
   private brokerUrl: string | null;
   private storage: StorageBackend | null;
-  private transport: Transport | null;
+  private transportOption: Transport | BuiltinTransportConfig | QueueTransportAdapter | null;
   private discoveryRetryMs: number;
   private httpVersion: "1.1" | "2";
   readonly registry: R;
@@ -48,124 +57,166 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
   constructor(options?: OsqueueClientOptions, registry?: R) {
     this.brokerUrl = options?.brokerUrl ?? null;
     this.storage = options?.storage ?? null;
-    this.transport = options?.transport ?? null;
+    this.transportOption = options?.transport ?? null;
     this.discoveryRetryMs = options?.discoveryRetryMs ?? 2000;
     this.httpVersion = options?.httpVersion ?? "1.1";
     this.registry = registry ?? ({} as R);
 
-    if (this.transport) {
-      this.client = createClient(QueueService, this.transport);
+    if (isQueueTransportAdapter(this.transportOption)) {
+      this.adapter = this.transportOption;
     } else if (this.brokerUrl) {
-      this.client = this.createNodeClient(this.brokerUrl);
+      this.adapter = this.createAdapter(this.brokerUrl);
     }
   }
 
-  private createNodeClient(url: string): Client<typeof QueueService> {
-    // Dynamic import to avoid bundling connect-node in browser builds
-    const { createConnectTransport } = require("@connectrpc/connect-node");
-    const transport = createConnectTransport({
+  private createAdapter(url: string): QueueTransportAdapter {
+    if (isQueueTransportAdapter(this.transportOption)) {
+      return this.transportOption;
+    }
+
+    if (isConnectTransport(this.transportOption)) {
+      return createConnectAdapter({
+        baseUrl: url,
+        transport: this.transportOption,
+        httpVersion: this.httpVersion,
+      });
+    }
+
+    if (isBuiltinTransportConfig(this.transportOption)) {
+      switch (this.transportOption.kind) {
+        case "rest":
+          return createRestAdapter({
+            kind: "rest",
+            baseUrl: this.transportOption.baseUrl ?? url,
+            fetchImpl: this.transportOption.fetchImpl,
+          });
+        case "ws":
+          return createWsAdapter({
+            kind: "ws",
+            baseUrl: this.transportOption.baseUrl ?? url,
+            requestTimeoutMs: this.transportOption.requestTimeoutMs,
+            wsPath: this.transportOption.wsPath,
+          });
+        case "connect":
+        default:
+          return createConnectAdapter({
+            kind: "connect",
+            baseUrl: this.transportOption.baseUrl ?? url,
+            transport: this.transportOption.transport,
+            httpVersion: this.transportOption.httpVersion ?? this.httpVersion,
+          });
+      }
+    }
+
+    return createConnectAdapter({
+      kind: "connect",
       baseUrl: url,
       httpVersion: this.httpVersion,
     });
-    return createClient(QueueService, transport);
   }
 
-  /** Discover broker address from queue.json and connect */
   async connect(): Promise<void> {
-    if (this.client) return;
+    if (this.adapter) return;
 
     if (!this.storage) {
-      throw new Error("No brokerUrl, transport, or storage provided for broker discovery");
+      throw new DiscoveryError(
+        "No brokerUrl, transport, or storage provided for broker discovery",
+      );
     }
 
     const result = await this.storage.read(QUEUE_STATE_KEY);
     if (!result) {
-      throw new Error("Queue state not found — is a broker running?");
+      throw new DiscoveryError("Queue state not found — is a broker running?");
     }
 
     const state = JSON.parse(decoder.decode(result.data)) as QueueState;
     if (!state.broker) {
-      throw new Error("No broker registered in queue state");
+      throw new DiscoveryError("No broker registered in queue state");
     }
 
     this.brokerUrl = `http://${state.broker}`;
-    this.client = this.createNodeClient(this.brokerUrl);
+    this.adapter = this.createAdapter(this.brokerUrl);
   }
 
-  /** Reconnect to broker (used on connection failure) */
   async reconnect(): Promise<void> {
-    if (this.transport) {
-      this.client = createClient(QueueService, this.transport);
-    } else {
-      this.client = null;
-      this.brokerUrl = null;
+    if (this.adapter?.reconnect) {
+      await this.adapter.reconnect();
+      return;
+    }
+
+    await this.adapter?.close?.();
+    this.adapter = null;
+
+    if (this.brokerUrl) {
+      this.adapter = this.createAdapter(this.brokerUrl);
+      return;
+    }
+
+    await this.connect();
+
+    if (!this.adapter) {
+      await new Promise((r) => setTimeout(r, this.discoveryRetryMs));
       await this.connect();
     }
   }
 
-  private async getClient(): Promise<Client<typeof QueueService>> {
-    if (!this.client) {
+  private async getAdapter(): Promise<QueueTransportAdapter> {
+    if (!this.adapter) {
       await this.connect();
     }
-    return this.client!;
+    return this.adapter!;
   }
 
-  async submitJob<T extends string & keyof R>(type: T, payload: z.infer<R[T]>, maxAttempts?: number): Promise<JobId> {
-    const client = await this.getClient();
-    const req = create(SubmitJobRequestSchema);
-    req.payload = encoder.encode(JSON.stringify(payload));
-    req.type = type;
-    if (maxAttempts !== undefined) {
-      req.maxAttempts = maxAttempts;
-    }
-    const res = await client.submitJob(req);
-    return res.jobId as JobId;
+  async submitJob<T extends string & keyof R>(
+    type: T,
+    payload: z.infer<R[T]>,
+    maxAttempts?: number,
+  ): Promise<JobId> {
+    const adapter = await this.getAdapter();
+    const result = await adapter.submitJob({
+      type,
+      payload,
+      maxAttempts,
+    });
+    return result.jobId as JobId;
   }
 
   async claimJob(
     workerId: WorkerId,
     types?: (string & keyof R)[],
   ): Promise<{ jobId: JobId; type: string; payload: unknown } | null> {
-    const client = await this.getClient();
-    const req = create(ClaimJobRequestSchema);
-    req.workerId = workerId;
-    if (types && types.length > 0) {
-      req.types = types;
-    }
-    const res = await client.claimJob(req);
-    if (!res.jobId) return null;
+    const adapter = await this.getAdapter();
+    const result = await adapter.claimJob({
+      workerId,
+      types,
+    });
+
+    if (!result.jobId) return null;
+
     return {
-      jobId: res.jobId as JobId,
-      type: res.type,
-      payload: res.payload ? JSON.parse(decoder.decode(res.payload)) : null,
+      jobId: result.jobId as JobId,
+      type: result.type,
+      payload: result.payload,
     };
   }
 
   async heartbeat(jobId: JobId, workerId: WorkerId): Promise<void> {
-    const client = await this.getClient();
-    const req = create(HeartbeatRequestSchema);
-    req.jobId = jobId;
-    req.workerId = workerId;
-    await client.heartbeat(req);
+    const adapter = await this.getAdapter();
+    await adapter.heartbeat({ jobId, workerId });
   }
 
   async completeJob(jobId: JobId, workerId: WorkerId): Promise<void> {
-    const client = await this.getClient();
-    const req = create(CompleteJobRequestSchema);
-    req.jobId = jobId;
-    req.workerId = workerId;
-    await client.completeJob(req);
+    const adapter = await this.getAdapter();
+    await adapter.completeJob({ jobId, workerId });
   }
 
-  async getStats(): Promise<GetStatsResponse> {
-    const client = await this.getClient();
-    const req = create(GetStatsRequestSchema);
-    return await client.getStats(req);
+  async getStats() {
+    const adapter = await this.getAdapter();
+    return await adapter.getStats();
   }
 
-  async listJobs(): Promise<ListJobsResponse> {
-    const client = await this.getClient();
-    const req = create(ListJobsRequestSchema);
-    return await client.listJobs(req);
+  async listJobs() {
+    const adapter = await this.getAdapter();
+    return await adapter.listJobs();
   }
 }

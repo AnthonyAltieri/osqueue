@@ -1,7 +1,7 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "vitest";
 import { GroupCommitEngine } from "../src/group-commit.js";
 import { MemoryBackend } from "@osqueue/storage";
-import { CASConflictError, QUEUE_STATE_KEY } from "@osqueue/types";
+import { QUEUE_STATE_KEY } from "@osqueue/types";
 import type { QueueState } from "@osqueue/types";
 
 const decoder = new TextDecoder();
@@ -63,7 +63,7 @@ describe("GroupCommitEngine", () => {
     });
     await engine.start();
 
-    const enqResult = await engine.submit({
+    await engine.submit({
       type: "enqueue",
       jobs: [{ payload: "x" }],
     });
@@ -164,7 +164,7 @@ describe("GroupCommitEngine", () => {
     });
     engine.stop();
 
-    expect(promise).rejects.toThrow("GroupCommitEngine stopped");
+    await expect(promise).rejects.toThrow("GroupCommitEngine stopped");
   });
 
   test("getCachedState returns current state", async () => {

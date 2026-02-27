@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { MemoryBackend } from "../src/memory.js";
 import { CASConflictError } from "@osqueue/types";
 
@@ -36,7 +36,7 @@ describe("MemoryBackend", () => {
   test("createIfNotExists throws on existing key", async () => {
     const backend = new MemoryBackend();
     await backend.createIfNotExists("test.json", encode({ a: 1 }));
-    expect(
+    await expect(
       backend.createIfNotExists("test.json", encode({ a: 2 })),
     ).rejects.toBeInstanceOf(CASConflictError);
   });
@@ -71,14 +71,14 @@ describe("MemoryBackend", () => {
     await backend.write("test.json", encode({ count: 1 }), v1);
 
     // Try to write with stale v1
-    expect(
+    await expect(
       backend.write("test.json", encode({ count: 2 }), v1),
     ).rejects.toBeInstanceOf(CASConflictError);
   });
 
   test("write throws on non-existent key", async () => {
     const backend = new MemoryBackend();
-    expect(
+    await expect(
       backend.write("missing.json", encode({ a: 1 }), { token: "1" }),
     ).rejects.toBeInstanceOf(CASConflictError);
   });
@@ -113,7 +113,7 @@ describe("MemoryBackend", () => {
     const backend = new MemoryBackend({
       failWith: new Error("injected failure"),
     });
-    expect(backend.read("test.json")).rejects.toThrow("injected failure");
+    await expect(backend.read("test.json")).rejects.toThrow("injected failure");
   });
 
   test("setOptions changes behavior at runtime", async () => {
@@ -122,7 +122,7 @@ describe("MemoryBackend", () => {
 
     // Now inject failure
     backend.setOptions({ failWith: new Error("boom") });
-    expect(backend.read("test.json")).rejects.toThrow("boom");
+    await expect(backend.read("test.json")).rejects.toThrow("boom");
 
     // Remove failure
     backend.setOptions({ failWith: null });

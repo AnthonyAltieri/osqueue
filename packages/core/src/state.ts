@@ -26,6 +26,18 @@ function uuid(): JobId {
   return crypto.randomUUID() as JobId;
 }
 
+function matchesJobTypeFilter(job: Job, jobTypes?: string[]): boolean {
+  if (!jobTypes || jobTypes.length === 0) {
+    return true;
+  }
+
+  if (!job.type) {
+    return false;
+  }
+
+  return jobTypes.includes(job.type);
+}
+
 /** Enqueue new jobs into the state */
 export function enqueueJobs(
   state: QueueState,
@@ -59,16 +71,9 @@ export function claimJob(
   now: number = Date.now(),
   jobTypes?: string[],
 ): { state: QueueState; claimed: { id: JobId; payload: unknown; type?: string } | null } {
-  const idx = state.jobs.findIndex((j) => {
-    if (j.status !== "unclaimed") return false;
-    if (jobTypes && jobTypes.length > 0 && j.type) {
-      return jobTypes.includes(j.type);
-    }
-    if (jobTypes && jobTypes.length > 0 && !j.type) {
-      return false;
-    }
-    return true;
-  });
+  const idx = state.jobs.findIndex(
+    (job) => job.status === "unclaimed" && matchesJobTypeFilter(job, jobTypes),
+  );
   if (idx === -1) {
     return { state, claimed: null };
   }

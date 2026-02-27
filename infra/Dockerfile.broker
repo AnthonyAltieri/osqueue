@@ -8,8 +8,9 @@ COPY packages/storage/package.json packages/storage/
 COPY packages/proto/package.json packages/proto/
 COPY packages/core/package.json packages/core/
 COPY packages/client/package.json packages/client/
+COPY packages/worker/package.json packages/worker/
 COPY packages/broker/package.json packages/broker/
-COPY apps/package.json apps/
+COPY apps/osqueue/package.json apps/osqueue/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
@@ -20,4 +21,4 @@ COPY apps/ apps/
 
 EXPOSE 8080
 
-CMD ["bun", "run", "apps/src/broker.ts"]
+CMD ["bun", "run", "--cwd", "apps/osqueue", "broker"]

@@ -7,10 +7,15 @@ import type {
 } from "@osqueue/types";
 import {
   CASConflictError,
+  EngineStateError,
   QUEUE_STATE_KEY,
   DEFAULT_HEARTBEAT_TIMEOUT_MS,
+  wrapUnknownError,
 } from "@osqueue/types";
 import { applyMutation, emptyState, expireHeartbeats } from "./state.js";
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 interface PendingMutation {
   mutation: Mutation;
@@ -85,7 +90,7 @@ export class GroupCommitEngine {
     // Reject remaining buffered mutations
     const remaining = this.buffer.splice(0);
     for (const pm of remaining) {
-      pm.reject(new Error("GroupCommitEngine stopped"));
+      pm.reject(new EngineStateError("GroupCommitEngine stopped"));
     }
   }
 
@@ -95,7 +100,6 @@ export class GroupCommitEngine {
   }
 
   private async ensureStateExists(): Promise<void> {
-    const encoder = new TextEncoder();
     try {
       const version = await this.storage.createIfNotExists(
         this.stateKey,
@@ -108,7 +112,10 @@ export class GroupCommitEngine {
         // Already exists — read it
         await this.refreshCache();
       } else {
-        throw err;
+        throw wrapUnknownError(
+          err,
+          (message, cause) => new EngineStateError(message, { cause }),
+        );
       }
     }
   }
@@ -116,7 +123,6 @@ export class GroupCommitEngine {
   private async refreshCache(): Promise<void> {
     const result = await this.storage.read(this.stateKey);
     if (result) {
-      const decoder = new TextDecoder();
       this.cachedState = JSON.parse(decoder.decode(result.data)) as QueueState;
       this.cachedVersion = result.version;
     }
@@ -138,7 +144,12 @@ export class GroupCommitEngine {
       // Unexpected error — reject entire batch
       const batch = this.buffer.splice(0);
       for (const pm of batch) {
-        pm.reject(err instanceof Error ? err : new Error(String(err)));
+        pm.reject(
+          wrapUnknownError(
+            err,
+            (message, cause) => new EngineStateError(message, { cause }),
+          ),
+        );
       }
     }
 
@@ -161,7 +172,7 @@ export class GroupCommitEngine {
         await this.refreshCache();
       }
       if (!this.cachedState || !this.cachedVersion) {
-        throw new Error("Failed to read queue state");
+        throw new EngineStateError("Failed to read queue state");
       }
 
       // Apply all mutations to a copy of the state
@@ -183,7 +194,6 @@ export class GroupCommitEngine {
       }
 
       // CAS write
-      const encoder = new TextEncoder();
       try {
         const newVersion = await this.storage.write(
           this.stateKey,
@@ -214,7 +224,12 @@ export class GroupCommitEngine {
         }
         // Non-CAS error or max retries exceeded — reject batch
         for (const pm of batch) {
-          pm.reject(err instanceof Error ? err : new Error(String(err)));
+          pm.reject(
+            wrapUnknownError(
+              err,
+              (message, cause) => new EngineStateError(message, { cause }),
+            ),
+          );
         }
         return;
       }

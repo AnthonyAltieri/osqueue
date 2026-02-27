@@ -1,167 +1,207 @@
 # osqueue
 
-Distributed job queue built on object storage with compare-and-swap semantics. Jobs are persisted in S3 (or GCS) as a single JSON file, coordinated through a broker that batches mutations via group commit.
+`osqueue` is a distributed job queue built on object storage with compare-and-swap (CAS) semantics.
+
+The broker keeps queue state in a single JSON object (`queue.json`) and uses optimistic concurrency to coordinate updates.
+
+## What Changed
+
+- Monorepo apps are now split as:
+  - `apps/osqueue`: example broker/producer/worker CLI app
+  - `apps/web`: example web dashboard and controls
+- Packages now compile cleanly to `dist/` and keep source in `src/`.
+- Worker runtime is its own publishable package: `@osqueue/worker`.
+- Client supports transport plugins: `connect`, `rest`, and `ws`.
+- Error handling is now typed and tagged (`_tag`), with `isOsqueueError(...)` narrowing.
+- Changesets linked versioning enforces lockstep versions for:
+  - `@osqueue/client`
+  - `@osqueue/broker`
+  - `@osqueue/worker`
 
 ## Architecture
 
+```text
+Producers / Workers / Observers
+         |
+         | connect / REST / WS
+         v
+   +-------------+        CAS read/write        +------------------+
+   |   Broker    | ---------------------------> | Object Storage   |
+   |  (Fastify)  |                              | queue.json       |
+   +-------------+ <--------------------------- | (S3/GCS/Memory)  |
+                                                +------------------+
 ```
-Browser tabs (producer/worker/observer)
-       │
-       │ ConnectRPC (HTTP)
-       ▼
-┌──────────────┐       ┌──────────┐
-│  Broker      │──────▶│  S3      │
-│  (Fastify)   │  CAS  │  queue.json
-└──────────────┘       └──────────┘
-```
 
-Each browser tab connects directly to the broker via ConnectRPC. The broker reads/writes queue state to object storage using compare-and-swap for consistency.
+## Inspiration
 
-## Packages
+This project is inspired by Turbopuffer's object-storage queue write-up:
 
-| Package | Description |
-|---------|-------------|
-| `packages/types` | Shared TypeScript types and constants |
-| `packages/core` | State machine, group commit engine, broker election |
-| `packages/proto` | Protobuf definitions and generated ConnectRPC stubs |
-| `packages/storage` | Storage backends (Memory, S3, GCS) |
-| `packages/client` | Queue client and worker SDK |
-| `packages/broker` | Broker server (Fastify + ConnectRPC) |
-| `packages/web` | TanStack Start frontend (dashboard, producer, worker) |
-| `apps/` | CLI entrypoints for running broker/producer/worker locally |
+- https://turbopuffer.com/blog/object-storage-queue
+
+## Repository Layout
+
+### Apps
+
+- `apps/osqueue` (`@osqueue/example`)
+  - Example CLI entrypoints for broker, producer, worker
+  - `src/` source, `dist/` build output
+- `apps/web` (`@osqueue/web`)
+  - TanStack Start web UI
+  - `app/` source, `dist/` build output
+
+### Packages
+
+- `packages/types`: shared types, constants, typed/tagged errors
+- `packages/proto`: protobuf schema + generated Connect types
+- `packages/storage`: memory, S3, and GCS backends
+- `packages/core`: state machine, broker election, group-commit engine
+- `packages/client`: typed queue client + transport adapter system
+- `packages/worker`: worker polling/execution runtime
+- `packages/broker`: broker server exposing Connect + REST + WS
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) v1.1+
-- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials (for deployment)
-- [Docker](https://www.docker.com/) (for deployment)
-- [SST](https://sst.dev) v3 (installed as a dev dependency)
+- Bun 1.1+
+- Node.js 20+
 
-## Quick Start (Local)
+Notes:
+- Repo scripts are run with Bun.
+- Published packages are ESM and built for Node 20 runtime compatibility.
+
+## Quick Start (Local CLI App)
 
 ```bash
-# Install dependencies
 bun install
-
-# Start the broker (in-memory storage)
-bun run apps/src/broker.ts
-
-# In another terminal — submit jobs
-bun run apps/src/producer.ts
-
-# In another terminal — process jobs
-bun run apps/src/worker.ts
 ```
 
-## Web Demo (Local Dev)
-
-Run the broker and web app together using SST dev mode:
+Run each process in a separate terminal:
 
 ```bash
-# Start both broker and web app with hot reload
+# broker
+bun run --cwd apps/osqueue broker
+
+# producer
+bun run --cwd apps/osqueue producer
+
+# worker
+bun run --cwd apps/osqueue worker
+```
+
+Default broker URL is `http://localhost:8080`.
+
+## Quick Start (Web App)
+
+Option 1: run full local infra with SST dev
+
+```bash
 bunx sst dev
 ```
 
-This starts:
-- **Broker** on `http://localhost:8080` (auto-detects SST-linked S3 bucket when available, falls back to in-memory storage)
-- **Web app** on `http://localhost:3001` (Vite dev server)
-
-For remote dev access (e.g. from another machine), set `DEV_HOST` to your machine's hostname:
+Option 2: run broker and web separately
 
 ```bash
-DEV_HOST=my-dev-box.local bunx sst dev
+# terminal 1
+bun run --cwd apps/osqueue broker
+
+# terminal 2
+VITE_BROKER_URL=http://localhost:8080 bun run --cwd apps/web dev
 ```
 
-Or run them separately:
+## Client Transport Plugins
 
-```bash
-# Terminal 1: broker
-bun run apps/src/broker.ts
+`@osqueue/client` supports:
 
-# Terminal 2: web app
-VITE_BROKER_URL=http://localhost:8080 bun run --cwd packages/web dev
+- `connect` (default)
+- `rest`
+- `ws`
+
+Example:
+
+```ts
+import { OsqueueClient } from "@osqueue/client";
+
+const client = new OsqueueClient({
+  brokerUrl: "http://localhost:8080",
+  transport: { kind: "ws" }, // or { kind: "rest" } / { kind: "connect" }
+});
 ```
 
-Then open three browser tabs:
-1. `http://localhost:3001/` — Dashboard (observe the queue)
-2. `http://localhost:3001/producer` — Submit jobs
-3. `http://localhost:3001/worker` — Process jobs
+You can also provide a custom adapter implementing `QueueTransportAdapter`.
 
-## Deploy to AWS
+## Typed Errors
 
-Deployment uses SST v3 to provision all infrastructure on AWS:
+All first-party runtime errors expose a literal `_tag` and class type.
 
-- **S3 bucket** for queue state persistence
-- **ECS Fargate** service for the broker (behind an ALB with health checks)
-- **CloudFront + Lambda** for the TanStack Start web app
+Use `isOsqueueError` for narrowing:
 
-### 1. Configure AWS credentials
+```ts
+import { isOsqueueError } from "@osqueue/types";
 
-```bash
-# Ensure your AWS credentials are set
-aws sts get-caller-identity
+try {
+  // queue operation
+} catch (error) {
+  if (isOsqueueError(error)) {
+    console.error(error._tag, error.message);
+  }
+}
 ```
 
-SST uses your default AWS profile. Set `AWS_PROFILE` to use a different one:
+## Environment Variables
+
+### `apps/osqueue`
+
+- `BROKER_HOST` (default: `0.0.0.0`)
+- `BROKER_PORT` (default: `8080`)
+- `BROKER_URL` (default: `http://localhost:8080`)
+- `STORAGE_BACKEND` (`memory` | `s3` | `gcs`, default: `memory`)
+- `S3_BUCKET` (required for `s3` backend unless running under SST link)
+- `S3_REGION`
+- `S3_PREFIX`
+- `GCS_BUCKET` (required for `gcs` backend)
+- `GCS_PREFIX`
+
+### `apps/web`
+
+- `VITE_BROKER_URL` (default: `http://localhost:8080`)
+- `VITE_OSQUEUE_TRANSPORT` (`connect` | `rest` | `ws`, default: `connect`)
+
+## Development Commands
 
 ```bash
-export AWS_PROFILE=my-profile
+bun run lint
+bun run build
+bun run test
 ```
 
-### 2. Deploy
+`bun run test` builds packages first, then runs Vitest.
+
+## Publishing
+
+Published packages:
+
+- `@osqueue/client`
+- `@osqueue/broker`
+- `@osqueue/worker`
+
+Versioning is linked via Changesets (`.changeset/config.json`), so these packages bump together.
+
+Release flow:
 
 ```bash
-# Deploy to a personal dev stage
+bun run changeset
+bun run release:version
+bun run release:publish
+```
+
+## Deploy (AWS via SST)
+
+```bash
 bunx sst deploy --stage dev
-
-# Deploy to production
 bunx sst deploy --stage production
 ```
 
-The first deploy takes ~5 minutes (VPC + ECS cluster creation). Subsequent deploys are faster.
-
-SST prints the outputs when done:
-
-```
-web:    https://d1xxxxx.cloudfront.net
-broker: http://Broke-Broke-xxxxx.us-east-1.elb.amazonaws.com
-```
-
-Open the `web` URL and follow the multi-tab demo instructions.
-
-### 3. Tear down
+Remove stack:
 
 ```bash
 bunx sst remove --stage dev
 ```
-
-This deletes all provisioned resources. The `production` stage uses `retain` removal policy for the S3 bucket.
-
-## Environment Variables
-
-### Broker (`apps/`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BROKER_HOST` | `0.0.0.0` | Bind address |
-| `BROKER_PORT` | `8080` | Listen port |
-| `STORAGE_BACKEND` | `memory` | `memory`, `s3`, or `gcs` |
-| `S3_BUCKET` | — | S3 bucket name (required when `s3`) |
-| `S3_REGION` | — | AWS region |
-| `S3_PREFIX` | — | Key prefix in bucket |
-| `GCS_BUCKET` | — | GCS bucket name (required when `gcs`) |
-| `GCS_PREFIX` | — | Key prefix in bucket |
-
-### Web App (`packages/web/`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_BROKER_URL` | `http://localhost:8080` | Broker URL for browser ConnectRPC calls |
-
-## Tests
-
-```bash
-bun test
-```
-
-Runs unit tests (state machine) and e2e tests (broker + client + worker integration).

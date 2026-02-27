@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { BrokerElection } from "../src/broker-election.js";
 import { MemoryBackend } from "@osqueue/storage";
 import { QUEUE_STATE_KEY } from "@osqueue/types";
@@ -96,7 +96,7 @@ describe("BrokerElection", () => {
     const backend = new MemoryBackend();
     // Set up stale broker
     const state = registerBroker(emptyState(), "broker-1:8080", 1000);
-    const version = await backend.createIfNotExists(
+    await backend.createIfNotExists(
       QUEUE_STATE_KEY,
       encoder.encode(JSON.stringify(state)),
     );

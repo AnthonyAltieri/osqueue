@@ -1,9 +1,11 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "vitest";
 import { z } from "zod";
 import { BrokerServer } from "../src/server.js";
-import { OsqueueClient, Worker } from "@osqueue/client";
+import { OsqueueClient } from "@osqueue/client";
+import { Worker } from "@osqueue/worker";
 import type { WorkerId } from "@osqueue/types";
 import { MemoryBackend } from "@osqueue/storage";
+import { WebSocket } from "ws";
 
 const wid = (s: string) => s as WorkerId;
 
@@ -180,5 +182,55 @@ describe("end-to-end", () => {
     expect(emails[0]!.to).toBe("user@example.com");
     expect(texts).toHaveLength(1);
     expect(texts[0]!.phone).toBe("555-1234");
+  });
+
+  test("websocket errors include _tag in response", async () => {
+    const storage = new MemoryBackend();
+    broker = new BrokerServer({
+      storage,
+      host: "127.0.0.1",
+      port: 9880,
+      groupCommitIntervalMs: 10,
+      heartbeatIntervalMs: 60_000,
+    });
+    await broker.start();
+
+    const ws = new WebSocket("ws://127.0.0.1:9880/v1/ws");
+    await new Promise<void>((resolve, reject) => {
+      ws.once("open", () => resolve());
+      ws.once("error", (err) => reject(err));
+    });
+
+    const messagePromise = new Promise<Record<string, unknown>>(
+      (resolve, reject) => {
+        ws.once("message", (data) => {
+          try {
+            resolve(JSON.parse(data.toString()) as Record<string, unknown>);
+          } catch (err) {
+            reject(err);
+          }
+        });
+        ws.once("error", (err) => reject(err));
+      },
+    );
+
+    ws.send(
+      JSON.stringify({
+        id: "ws-1",
+        method: "not-supported",
+        params: {},
+      }),
+    );
+
+    const message = await messagePromise;
+    expect(message.ok).toBe(false);
+    const error = message.error as Record<string, unknown>;
+    expect(error._tag).toBe("BrokerProtocolError");
+    expect(error.message).toContain("Unsupported WS method");
+
+    await new Promise<void>((resolve) => {
+      ws.once("close", () => resolve());
+      ws.close();
+    });
   });
 });

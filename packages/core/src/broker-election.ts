@@ -1,8 +1,10 @@
 import type { StorageBackend, QueueState } from "@osqueue/types";
 import {
+  BrokerLeadershipError,
   CASConflictError,
   QUEUE_STATE_KEY,
   DEFAULT_BROKER_HEARTBEAT_TIMEOUT_MS,
+  wrapUnknownError,
 } from "@osqueue/types";
 import { emptyState, registerBroker } from "./state.js";
 
@@ -56,7 +58,10 @@ export class BrokerElection {
         if (err instanceof CASConflictError) {
           return { status: "conflict" };
         }
-        throw err;
+        throw wrapUnknownError(
+          err,
+          (message, cause) => new BrokerLeadershipError(message, { cause }),
+        );
       }
     }
 
@@ -92,7 +97,10 @@ export class BrokerElection {
       if (err instanceof CASConflictError) {
         return { status: "conflict" };
       }
-      throw err;
+      throw wrapUnknownError(
+        err,
+        (message, cause) => new BrokerLeadershipError(message, { cause }),
+      );
     }
   }
 
