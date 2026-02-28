@@ -24,6 +24,7 @@ describe("end-to-end", () => {
       port: 9876,
       groupCommitIntervalMs: 10,
       heartbeatIntervalMs: 60_000, // long so it doesn't interfere
+      heartbeatTimeoutMs: 120_000,
     });
     await broker.start();
 
@@ -67,6 +68,7 @@ describe("end-to-end", () => {
       port: 9877,
       groupCommitIntervalMs: 10,
       heartbeatIntervalMs: 60_000,
+      heartbeatTimeoutMs: 120_000,
     });
     await broker.start();
 
@@ -86,6 +88,7 @@ describe("end-to-end", () => {
       port: 9878,
       groupCommitIntervalMs: 10,
       heartbeatIntervalMs: 60_000,
+      heartbeatTimeoutMs: 120_000,
     });
     await broker.start();
 
@@ -139,6 +142,7 @@ describe("end-to-end", () => {
       port: 9879,
       groupCommitIntervalMs: 10,
       heartbeatIntervalMs: 60_000,
+      heartbeatTimeoutMs: 120_000,
     });
     await broker.start();
 
@@ -192,6 +196,7 @@ describe("end-to-end", () => {
       port: 9880,
       groupCommitIntervalMs: 10,
       heartbeatIntervalMs: 60_000,
+      heartbeatTimeoutMs: 120_000,
     });
     await broker.start();
 

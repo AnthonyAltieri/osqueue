@@ -81,6 +81,26 @@ export class BrokerServer {
   }
 
   async start(): Promise<void> {
+    const { heartbeatIntervalMs, heartbeatTimeoutMs, groupCommitIntervalMs } =
+      this.options;
+
+    if (heartbeatIntervalMs >= heartbeatTimeoutMs) {
+      throw new BrokerLeadershipError(
+        `heartbeatIntervalMs (${heartbeatIntervalMs}) must be less than heartbeatTimeoutMs (${heartbeatTimeoutMs}). ` +
+          `Standby brokers will consider the leader dead between heartbeats, causing split-brain. ` +
+          `Set heartbeatIntervalMs to at most ${Math.floor(heartbeatTimeoutMs / 3)}ms.`,
+      );
+    } else if (heartbeatIntervalMs > heartbeatTimeoutMs / 2) {
+      console.warn(
+        `[broker] heartbeatIntervalMs (${heartbeatIntervalMs}) is more than half of heartbeatTimeoutMs (${heartbeatTimeoutMs}). ` +
+          `This leaves little margin for leader detection. Recommended: <=${Math.floor(heartbeatTimeoutMs / 3)}ms.`,
+      );
+    }
+
+    console.log(
+      `[broker] Config: heartbeatInterval=${heartbeatIntervalMs}ms, heartbeatTimeout=${heartbeatTimeoutMs}ms, groupCommitInterval=${groupCommitIntervalMs}ms`,
+    );
+
     const result = await this.election.tryElect();
     if (result.status === "other_leader") {
       throw new BrokerLeadershipError(
