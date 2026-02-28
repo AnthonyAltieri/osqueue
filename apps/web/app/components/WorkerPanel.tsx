@@ -20,7 +20,7 @@ export function WorkerPanel({
           Browser Worker
         </h2>
         {running && (
-          <span className="text-[10px] text-text-dim font-mono">
+          <span className="text-xs text-text-muted bg-surface-2 px-2 py-0.5 font-mono">
             ID: {workerId}
           </span>
         )}

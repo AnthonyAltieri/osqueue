@@ -1,0 +1,13 @@
+http://{$DOMAIN} {
+	root * /app/apps/docs/build
+	file_server
+	try_files {path} {path}/ /index.html
+}
+
+http://demo.{$DOMAIN} {
+	reverse_proxy localhost:3001
+}
+
+http://api.{$DOMAIN} {
+	reverse_proxy localhost:8080
+}

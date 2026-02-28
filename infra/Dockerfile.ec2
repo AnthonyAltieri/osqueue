@@ -1,0 +1,57 @@
+FROM caddy:2 AS caddy
+
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Copy workspace root
+COPY package.json bun.lock* tsconfig.json ./
+COPY packages/types/package.json packages/types/
+COPY packages/storage/package.json packages/storage/
+COPY packages/proto/package.json packages/proto/
+COPY packages/core/package.json packages/core/
+COPY packages/client/package.json packages/client/
+COPY packages/worker/package.json packages/worker/
+COPY packages/broker/package.json packages/broker/
+COPY apps/osqueue/package.json apps/osqueue/
+COPY apps/web/package.json apps/web/
+COPY apps/docs/package.json apps/docs/
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source
+COPY packages/ packages/
+COPY apps/ apps/
+
+# Build all packages (storage needs build for dist/)
+RUN bun run --cwd packages/types build && \
+    bun run --cwd packages/storage build && \
+    bun run --cwd packages/proto build && \
+    bun run --cwd packages/core build && \
+    bun run --cwd packages/client build && \
+    bun run --cwd packages/worker build && \
+    bun run --cwd packages/broker build
+
+# Build web dashboard
+RUN cd apps/web && bun run build
+
+# Build docs site
+RUN cd apps/docs && bunx docusaurus build
+
+# Install Node.js (TanStack Start requires Node runtime)
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Caddy reverse proxy
+COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
+COPY infra/Caddyfile /app/Caddyfile
+COPY infra/serve-web.mjs /app/serve-web.mjs
+# Copy entrypoint
+COPY infra/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/app/entrypoint.sh"]

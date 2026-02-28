@@ -3,6 +3,7 @@ import { useQueue } from "~/lib/use-queue";
 import { QueueStats } from "~/components/QueueStats";
 import { JobTable } from "~/components/JobTable";
 import { ActivityLog } from "~/components/ActivityLog";
+import { ActiveWorkers } from "~/components/ActiveWorkers";
 import { RawState } from "~/components/RawState";
 
 export const Route = createFileRoute("/")({
@@ -56,6 +57,12 @@ function Dashboard() {
         unclaimed={queue.unclaimed}
         inProgress={queue.inProgress}
         completedTotal={queue.completedTotal}
+      />
+
+      <ActiveWorkers
+        jobs={queue.jobs}
+        brokerAddress={queue.brokerAddress}
+        connected={queue.connected}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

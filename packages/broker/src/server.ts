@@ -190,6 +190,14 @@ export class BrokerServer {
       },
     );
 
+    this.server.get("/v1/throttle-stats", async () => {
+      const storage = this.options.storage as any;
+      if (typeof storage.getStats === "function") {
+        return storage.getStats();
+      }
+      return { throttling: false };
+    });
+
     this.server.get("/v1/stats", async () => {
       return getQueueStats(this.engine.getCachedState());
     });

@@ -20,7 +20,17 @@ let client: OsqueueClient<typeof registry> | null = null;
 
 export function getBrokerUrl(): string {
   if (typeof window === "undefined") return "";
-  return (import.meta as any).env?.VITE_BROKER_URL || "http://localhost:8080";
+  const envUrl = (import.meta as any).env?.VITE_BROKER_URL;
+  if (envUrl) return envUrl;
+  const hostname = window.location.hostname;
+  // On a real domain: use api.{root domain} with matching protocol (Caddy handles TLS)
+  // Strip "demo." prefix if present (dashboard lives on demo.domain.com, broker on api.domain.com)
+  if (hostname !== "localhost" && !/^\d/.test(hostname)) {
+    const rootDomain = hostname.replace(/^demo\./, "");
+    return `${window.location.protocol}//api.${rootDomain}`;
+  }
+  // Local dev or raw IP: broker on port 8080
+  return `http://${hostname}:8080`;
 }
 
 function getTransportKind(): BrowserTransportKind {

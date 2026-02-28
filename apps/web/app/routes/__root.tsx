@@ -54,12 +54,12 @@ function Nav() {
   return (
     <nav className="border-b border-border bg-surface-0/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           <Link to="/" className="flex items-center gap-2 group">
             <span className="text-sm font-display font-bold tracking-wide text-text group-hover:text-purple transition-colors">
               osqueue
             </span>
-            <span className="text-[9px] uppercase tracking-[0.2em] text-text-dim border border-border px-1.5 py-0.5">
+            <span className="hidden sm:inline text-[9px] uppercase tracking-[0.2em] text-text-dim border border-border px-1.5 py-0.5">
               demo
             </span>
           </Link>
