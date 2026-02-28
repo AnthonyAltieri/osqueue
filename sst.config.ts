@@ -154,10 +154,12 @@ export default $config({
           `-e STORAGE_BACKEND=s3`,
           `-e S3_BUCKET=${bucketName}`,
           `-e S3_REGION=${regionName}`,
-          `-e GROUP_COMMIT_INTERVAL_MS=2000`,
-          `-e BROKER_HEARTBEAT_INTERVAL_MS=3000`,
+          `-e GROUP_COMMIT_INTERVAL_MS=200`,
+          `-e BROKER_HEARTBEAT_INTERVAL_MS=15000`,
+          `-e BROKER_HEARTBEAT_TIMEOUT_MS=60000`,
+          `-e S3_MAX_WRITES_PER_DAY=10000`,
           `-e S3_MAX_WRITES_PER_MINUTE=30`,
-          `-e S3_MAX_READS_PER_MINUTE=60`,
+          `-e S3_MAX_READS_PER_MINUTE=0`,
         ].join(" ");
 
         return `#!/bin/bash

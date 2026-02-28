@@ -10,6 +10,7 @@ const server = new BrokerServer({
   port: env.BROKER_PORT,
   groupCommitIntervalMs: env.GROUP_COMMIT_INTERVAL_MS,
   heartbeatIntervalMs: env.BROKER_HEARTBEAT_INTERVAL_MS,
+  heartbeatTimeoutMs: env.BROKER_HEARTBEAT_TIMEOUT_MS,
 });
 
 await server.start();

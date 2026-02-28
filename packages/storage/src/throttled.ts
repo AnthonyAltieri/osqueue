@@ -4,6 +4,10 @@ import type {
   StorageReadResult,
 } from "@osqueue/types";
 
+function startOfUTCDay(ms: number): number {
+  return ms - (ms % 86_400_000);
+}
+
 export interface ThrottleStats {
   totalReads: number;
   totalWrites: number;
@@ -11,6 +15,8 @@ export interface ThrottleStats {
   throttledWrites: number;
   totalReadDelayMs: number;
   totalWriteDelayMs: number;
+  dailyWriteCount: number;
+  dailyBudgetExceeded: boolean;
 }
 
 class TokenBucket {
@@ -54,12 +60,16 @@ export interface ThrottledStorageBackendOptions {
   backend: StorageBackend;
   maxReadsPerMinute?: number;
   maxWritesPerMinute?: number;
+  maxWritesPerDay?: number;
 }
 
 export class ThrottledStorageBackend implements StorageBackend {
   private backend: StorageBackend;
   private readBucket: TokenBucket | null;
   private writeBucket: TokenBucket | null;
+  private maxWritesPerDay: number;
+  private dailyWriteCount = 0;
+  private dayStartTimestamp: number;
   private stats: ThrottleStats = {
     totalReads: 0,
     totalWrites: 0,
@@ -67,6 +77,8 @@ export class ThrottledStorageBackend implements StorageBackend {
     throttledWrites: 0,
     totalReadDelayMs: 0,
     totalWriteDelayMs: 0,
+    dailyWriteCount: 0,
+    dailyBudgetExceeded: false,
   };
 
   constructor(opts: ThrottledStorageBackendOptions) {
@@ -79,6 +91,8 @@ export class ThrottledStorageBackend implements StorageBackend {
       opts.maxWritesPerMinute && opts.maxWritesPerMinute > 0
         ? new TokenBucket(opts.maxWritesPerMinute)
         : null;
+    this.maxWritesPerDay = opts.maxWritesPerDay ?? 0;
+    this.dayStartTimestamp = startOfUTCDay(Date.now());
   }
 
   private async acquireRead(): Promise<void> {
@@ -94,6 +108,29 @@ export class ThrottledStorageBackend implements StorageBackend {
 
   private async acquireWrite(): Promise<void> {
     this.stats.totalWrites++;
+
+    // Reset counter on new UTC day
+    const now = Date.now();
+    const todayStart = startOfUTCDay(now);
+    if (todayStart !== this.dayStartTimestamp) {
+      this.dailyWriteCount = 0;
+      this.dayStartTimestamp = todayStart;
+    }
+
+    this.dailyWriteCount++;
+    this.stats.dailyWriteCount = this.dailyWriteCount;
+
+    // If daily budget is configured and not exceeded, pass through instantly
+    if (this.maxWritesPerDay > 0 && this.dailyWriteCount <= this.maxWritesPerDay) {
+      this.stats.dailyBudgetExceeded = false;
+      return;
+    }
+
+    if (this.maxWritesPerDay > 0) {
+      this.stats.dailyBudgetExceeded = true;
+    }
+
+    // Fall back to per-minute token bucket
     if (!this.writeBucket) return;
     const delay = this.writeBucket.acquire();
     if (delay > 0) {

@@ -48,11 +48,12 @@ export function createStorage(): StorageBackend {
       break;
   }
 
-  if (env.S3_MAX_READS_PER_MINUTE > 0 || env.S3_MAX_WRITES_PER_MINUTE > 0) {
+  if (env.S3_MAX_READS_PER_MINUTE > 0 || env.S3_MAX_WRITES_PER_MINUTE > 0 || env.S3_MAX_WRITES_PER_DAY > 0) {
     return new ThrottledStorageBackend({
       backend,
       maxReadsPerMinute: env.S3_MAX_READS_PER_MINUTE,
       maxWritesPerMinute: env.S3_MAX_WRITES_PER_MINUTE,
+      maxWritesPerDay: env.S3_MAX_WRITES_PER_DAY,
     });
   }
 
