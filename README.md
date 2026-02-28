@@ -4,6 +4,8 @@
 
 The broker keeps queue state in a single JSON object (`queue.json`) and uses optimistic concurrency to coordinate updates.
 
+**[Documentation](https://osqueue.com)** | **[Live Demo](https://demo.osqueue.com)**
+
 ## What Changed
 
 - Monorepo apps are now split as:
