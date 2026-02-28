@@ -2,13 +2,10 @@ import type { Transport } from "@connectrpc/connect";
 import type { StorageBackend, QueueState, JobId, WorkerId } from "@osqueue/types";
 import { DiscoveryError, QUEUE_STATE_KEY } from "@osqueue/types";
 import { z } from "zod";
-import {
-  createConnectAdapter,
-  createRestAdapter,
-  createWsAdapter,
-  type BuiltinTransportConfig,
-  type QueueTransportAdapter,
-} from "./transports/index.js";
+import type {
+  BuiltinTransportConfig,
+  QueueTransportAdapter,
+} from "./transports/types.js";
 
 export type JobTypeRegistry = Record<string, z.ZodType>;
 export type DefaultRegistry = Record<string, z.ZodType>;
@@ -64,18 +61,17 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
 
     if (isQueueTransportAdapter(this.transportOption)) {
       this.adapter = this.transportOption;
-    } else if (this.brokerUrl) {
-      this.adapter = this.createAdapter(this.brokerUrl);
     }
   }
 
-  private createAdapter(url: string): QueueTransportAdapter {
+  private async createAdapter(url: string): Promise<QueueTransportAdapter> {
     if (isQueueTransportAdapter(this.transportOption)) {
       return this.transportOption;
     }
 
     if (isConnectTransport(this.transportOption)) {
-      return createConnectAdapter({
+      const { createConnectTransport } = await import("./transports/connect.js");
+      return createConnectTransport({
         baseUrl: url,
         transport: this.transportOption,
         httpVersion: this.httpVersion,
@@ -84,31 +80,38 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
 
     if (isBuiltinTransportConfig(this.transportOption)) {
       switch (this.transportOption.kind) {
-        case "rest":
-          return createRestAdapter({
+        case "rest": {
+          const { createRestTransport } = await import("./transports/rest.js");
+          return createRestTransport({
             kind: "rest",
             baseUrl: this.transportOption.baseUrl ?? url,
             fetchImpl: this.transportOption.fetchImpl,
           });
-        case "ws":
-          return createWsAdapter({
+        }
+        case "ws": {
+          const { createWsTransport } = await import("./transports/ws.js");
+          return createWsTransport({
             kind: "ws",
             baseUrl: this.transportOption.baseUrl ?? url,
             requestTimeoutMs: this.transportOption.requestTimeoutMs,
             wsPath: this.transportOption.wsPath,
           });
+        }
         case "connect":
-        default:
-          return createConnectAdapter({
+        default: {
+          const { createConnectTransport } = await import("./transports/connect.js");
+          return createConnectTransport({
             kind: "connect",
             baseUrl: this.transportOption.baseUrl ?? url,
             transport: this.transportOption.transport,
             httpVersion: this.transportOption.httpVersion ?? this.httpVersion,
           });
+        }
       }
     }
 
-    return createConnectAdapter({
+    const { createConnectTransport } = await import("./transports/connect.js");
+    return createConnectTransport({
       kind: "connect",
       baseUrl: url,
       httpVersion: this.httpVersion,
@@ -135,7 +138,7 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
     }
 
     this.brokerUrl = `http://${state.broker}`;
-    this.adapter = this.createAdapter(this.brokerUrl);
+    this.adapter = await this.createAdapter(this.brokerUrl);
   }
 
   async reconnect(): Promise<void> {
@@ -148,7 +151,7 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
     this.adapter = null;
 
     if (this.brokerUrl) {
-      this.adapter = this.createAdapter(this.brokerUrl);
+      this.adapter = await this.createAdapter(this.brokerUrl);
       return;
     }
 
@@ -162,7 +165,11 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
 
   private async getAdapter(): Promise<QueueTransportAdapter> {
     if (!this.adapter) {
-      await this.connect();
+      if (this.brokerUrl) {
+        this.adapter = await this.createAdapter(this.brokerUrl);
+      } else {
+        await this.connect();
+      }
     }
     return this.adapter!;
   }

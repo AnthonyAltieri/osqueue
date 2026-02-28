@@ -8,15 +8,32 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./memory": {
+      "types": "./dist/memory.d.ts",
+      "import": "./dist/memory.js"
+    },
+    "./s3": {
+      "types": "./dist/s3.d.ts",
+      "import": "./dist/s3.js"
+    },
+    "./gcs": {
+      "types": "./dist/gcs.d.ts",
+      "import": "./dist/gcs.js"
+    },
+    "./throttled": {
+      "types": "./dist/throttled.d.ts",
+      "import": "./dist/throttled.js"
     }
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --target node20 --clean",
+    "build": "tsup src/index.ts src/memory.ts src/s3.ts src/gcs.ts src/throttled.ts --format esm --dts --target node20 --clean",
     "test": "vitest run test/**/*.test.ts"
   },
   "dependencies": {

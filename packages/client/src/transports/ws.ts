@@ -57,7 +57,7 @@ async function getWebSocketCtor(): Promise<any> {
   return ws.WebSocket;
 }
 
-export function createWsAdapter(config: WsTransportConfig): QueueTransportAdapter {
+export function createWsTransport(config: WsTransportConfig): QueueTransportAdapter {
   if (!config.baseUrl) {
     throw new TransportConfigError("WebSocket transport requires baseUrl");
   }

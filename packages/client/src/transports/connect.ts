@@ -21,11 +21,11 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 async function createNodeTransport(baseUrl: string, httpVersion: "1.1" | "2") {
-  const { createConnectTransport } = await import("@connectrpc/connect-node");
-  return createConnectTransport({ baseUrl, httpVersion });
+  const { createConnectTransport: makeTransport } = await import("@connectrpc/connect-node");
+  return makeTransport({ baseUrl, httpVersion });
 }
 
-export function createConnectAdapter(config: ConnectTransportConfig): QueueTransportAdapter {
+export function createConnectTransport(config: ConnectTransportConfig): QueueTransportAdapter {
   if (!config.baseUrl && !config.transport) {
     throw new TransportConfigError(
       "Connect transport requires baseUrl when no transport is provided",

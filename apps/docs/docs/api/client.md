@@ -142,20 +142,20 @@ Reconnect to the broker. If the transport adapter has a `reconnect()` method, ca
 await client.reconnect();
 ```
 
-## Transport Adapter Factories
+## Transport Factories
+
+Each transport is available as a subpath export for tree-shaking:
 
 ```typescript
-import {
-  createConnectAdapter,
-  createRestAdapter,
-  createWsAdapter,
-} from "@osqueue/client";
+import { createConnectTransport } from "@osqueue/client/connect";
+import { createRestTransport } from "@osqueue/client/rest";
+import { createWsTransport } from "@osqueue/client/ws";
 ```
 
-### `createConnectAdapter(config)`
+### `createConnectTransport(config)`
 
 ```typescript
-createConnectAdapter({
+createConnectTransport({
   kind: "connect",
   baseUrl: "http://localhost:8080",
   httpVersion: "1.1",    // or "2"
@@ -163,20 +163,20 @@ createConnectAdapter({
 });
 ```
 
-### `createRestAdapter(config)`
+### `createRestTransport(config)`
 
 ```typescript
-createRestAdapter({
+createRestTransport({
   kind: "rest",
   baseUrl: "http://localhost:8080",
   fetchImpl: customFetch,  // optional
 });
 ```
 
-### `createWsAdapter(config)`
+### `createWsTransport(config)`
 
 ```typescript
-createWsAdapter({
+createWsTransport({
   kind: "ws",
   baseUrl: "http://localhost:8080",
   requestTimeoutMs: 10000,  // default

@@ -107,9 +107,9 @@ Exports:
 - `OsqueueClientOptions`
 - `JobTypeRegistry`
 - `QueueTransportAdapter`
-- `createConnectAdapter`
-- `createRestAdapter`
-- `createWsAdapter`
+- `createConnectTransport` (via `@osqueue/client/connect`)
+- `createRestTransport` (via `@osqueue/client/rest`)
+- `createWsTransport` (via `@osqueue/client/ws`)
 
 ## Errors
 

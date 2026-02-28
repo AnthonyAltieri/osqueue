@@ -17,7 +17,7 @@ function trimTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
-export function createRestAdapter(config: RestTransportConfig): QueueTransportAdapter {
+export function createRestTransport(config: RestTransportConfig): QueueTransportAdapter {
   if (!config.baseUrl) {
     throw new TransportConfigError("REST transport requires baseUrl");
   }

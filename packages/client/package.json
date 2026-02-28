@@ -8,15 +8,32 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./connect": {
+      "types": "./dist/transports/connect.d.ts",
+      "import": "./dist/transports/connect.js"
+    },
+    "./rest": {
+      "types": "./dist/transports/rest.d.ts",
+      "import": "./dist/transports/rest.js"
+    },
+    "./ws": {
+      "types": "./dist/transports/ws.d.ts",
+      "import": "./dist/transports/ws.js"
+    },
+    "./transports": {
+      "types": "./dist/transports/types.d.ts",
+      "import": "./dist/transports/types.js"
     }
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --target node20 --clean"
+    "build": "tsup src/index.ts src/transports/connect.ts src/transports/rest.ts src/transports/ws.ts src/transports/types.ts --format esm --dts --target node20 --clean"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.0.0",

@@ -1,6 +1,6 @@
-export { createConnectAdapter } from "./connect.js";
-export { createRestAdapter } from "./rest.js";
-export { createWsAdapter } from "./ws.js";
+export { createConnectTransport } from "./connect.js";
+export { createRestTransport } from "./rest.js";
+export { createWsTransport } from "./ws.js";
 export type {
   BuiltinTransportKind,
   ConnectTransportConfig,

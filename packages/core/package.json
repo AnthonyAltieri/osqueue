@@ -8,15 +8,28 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./state": {
+      "types": "./dist/state.d.ts",
+      "import": "./dist/state.js"
+    },
+    "./engine": {
+      "types": "./dist/group-commit.d.ts",
+      "import": "./dist/group-commit.js"
+    },
+    "./election": {
+      "types": "./dist/broker-election.d.ts",
+      "import": "./dist/broker-election.js"
     }
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --target node20 --clean",
+    "build": "tsup src/index.ts src/state.ts src/group-commit.ts src/broker-election.ts --format esm --dts --target node20 --clean",
     "test": "vitest run test/**/*.test.ts"
   },
   "dependencies": {
