@@ -16,6 +16,10 @@ const envSchema = z.object({
   S3_MAX_WRITES_PER_MINUTE: z.coerce.number().default(0),
   S3_MAX_WRITES_PER_DAY: z.coerce.number().default(0),
   BROKER_HEARTBEAT_TIMEOUT_MS: z.coerce.number().default(10_000),
+  OTEL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export const env = envSchema.parse(process.env);

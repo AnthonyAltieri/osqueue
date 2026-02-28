@@ -3,6 +3,16 @@ import type {
   StorageVersion,
   StorageReadResult,
 } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_STORAGE_KEY,
+  OSQUEUE_STORAGE_BACKEND,
+  OSQUEUE_STORAGE_OPERATION,
+  OSQUEUE_THROTTLE_DELAY_MS,
+} from "@osqueue/otel";
+
+const tracer = createTracer("@osqueue/storage");
 
 function startOfUTCDay(ms: number): number {
   return ms - (ms % 86_400_000);
@@ -95,18 +105,19 @@ export class ThrottledStorageBackend implements StorageBackend {
     this.dayStartTimestamp = startOfUTCDay(Date.now());
   }
 
-  private async acquireRead(): Promise<void> {
+  private async acquireRead(): Promise<number> {
     this.stats.totalReads++;
-    if (!this.readBucket) return;
+    if (!this.readBucket) return 0;
     const delay = this.readBucket.acquire();
     if (delay > 0) {
       this.stats.throttledReads++;
       this.stats.totalReadDelayMs += delay;
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
+    return delay;
   }
 
-  private async acquireWrite(): Promise<void> {
+  private async acquireWrite(): Promise<number> {
     this.stats.totalWrites++;
 
     // Reset counter on new UTC day
@@ -123,7 +134,7 @@ export class ThrottledStorageBackend implements StorageBackend {
     // If daily budget is configured and not exceeded, pass through instantly
     if (this.maxWritesPerDay > 0 && this.dailyWriteCount <= this.maxWritesPerDay) {
       this.stats.dailyBudgetExceeded = false;
-      return;
+      return 0;
     }
 
     if (this.maxWritesPerDay > 0) {
@@ -131,18 +142,26 @@ export class ThrottledStorageBackend implements StorageBackend {
     }
 
     // Fall back to per-minute token bucket
-    if (!this.writeBucket) return;
+    if (!this.writeBucket) return 0;
     const delay = this.writeBucket.acquire();
     if (delay > 0) {
       this.stats.throttledWrites++;
       this.stats.totalWriteDelayMs += delay;
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
+    return delay;
   }
 
   async read(key: string): Promise<StorageReadResult | null> {
-    await this.acquireRead();
-    return this.backend.read(key);
+    return withSpan(tracer, "storage.throttled.read", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "throttled",
+      [OSQUEUE_STORAGE_OPERATION]: "read",
+    }, async (span) => {
+      const delay = await this.acquireRead();
+      if (delay > 0) span.setAttribute(OSQUEUE_THROTTLE_DELAY_MS, delay);
+      return this.backend.read(key);
+    });
   }
 
   async write(
@@ -150,16 +169,30 @@ export class ThrottledStorageBackend implements StorageBackend {
     data: Uint8Array,
     expectedVersion: StorageVersion,
   ): Promise<StorageVersion> {
-    await this.acquireWrite();
-    return this.backend.write(key, data, expectedVersion);
+    return withSpan(tracer, "storage.throttled.write", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "throttled",
+      [OSQUEUE_STORAGE_OPERATION]: "write",
+    }, async (span) => {
+      const delay = await this.acquireWrite();
+      if (delay > 0) span.setAttribute(OSQUEUE_THROTTLE_DELAY_MS, delay);
+      return this.backend.write(key, data, expectedVersion);
+    });
   }
 
   async createIfNotExists(
     key: string,
     data: Uint8Array,
   ): Promise<StorageVersion> {
-    await this.acquireWrite();
-    return this.backend.createIfNotExists(key, data);
+    return withSpan(tracer, "storage.throttled.createIfNotExists", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "throttled",
+      [OSQUEUE_STORAGE_OPERATION]: "createIfNotExists",
+    }, async (span) => {
+      const delay = await this.acquireWrite();
+      if (delay > 0) span.setAttribute(OSQUEUE_THROTTLE_DELAY_MS, delay);
+      return this.backend.createIfNotExists(key, data);
+    });
   }
 
   getStats(): ThrottleStats {

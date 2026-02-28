@@ -1,6 +1,15 @@
 import type { GroupCommitEngine } from "@osqueue/core";
 import type { JobId, WorkerId, QueueState } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_JOB_ID,
+  OSQUEUE_JOB_TYPE,
+  OSQUEUE_WORKER_ID,
+  OSQUEUE_JOBS_CLAIMED,
+} from "@osqueue/otel";
 
+const tracer = createTracer("@osqueue/broker");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -79,18 +88,24 @@ export async function submitJobOperation(
     maxAttempts?: number;
   },
 ): Promise<{ jobId: string }> {
-  const result = await engine.submit({
-    type: "enqueue",
-    jobs: [
-      {
-        payload: input.payload,
-        jobType: input.type || undefined,
-        maxAttempts: input.maxAttempts ?? undefined,
-      },
-    ],
-  });
+  return withSpan(tracer, "broker.submitJob", {
+    [OSQUEUE_JOB_TYPE]: input.type,
+  }, async (span) => {
+    const result = await engine.submit({
+      type: "enqueue",
+      jobs: [
+        {
+          payload: input.payload,
+          jobType: input.type || undefined,
+          maxAttempts: input.maxAttempts ?? undefined,
+        },
+      ],
+    });
 
-  return { jobId: result.enqueuedIds![0]! };
+    const jobId = result.enqueuedIds![0]!;
+    span.setAttribute(OSQUEUE_JOB_ID, jobId);
+    return { jobId };
+  });
 }
 
 export async function claimJobOperation(
@@ -100,31 +115,46 @@ export async function claimJobOperation(
     types?: string[];
   },
 ): Promise<{ jobId?: string; payload?: unknown; type?: string }> {
-  const result = await engine.submit({
-    type: "claim",
-    workerId: input.workerId as WorkerId,
-    jobTypes: input.types && input.types.length > 0 ? input.types : undefined,
+  return withSpan(tracer, "broker.claimJob", {
+    [OSQUEUE_WORKER_ID]: input.workerId,
+  }, async (span) => {
+    const result = await engine.submit({
+      type: "claim",
+      workerId: input.workerId as WorkerId,
+      jobTypes: input.types && input.types.length > 0 ? input.types : undefined,
+    });
+
+    if (!result.claimedJob) {
+      span.setAttribute(OSQUEUE_JOBS_CLAIMED, 0);
+      return {};
+    }
+
+    span.setAttribute(OSQUEUE_JOB_ID, result.claimedJob.id);
+    span.setAttribute(OSQUEUE_JOBS_CLAIMED, 1);
+    if (result.claimedJob.type) {
+      span.setAttribute(OSQUEUE_JOB_TYPE, result.claimedJob.type);
+    }
+    return {
+      jobId: result.claimedJob.id,
+      payload: result.claimedJob.payload,
+      type: result.claimedJob.type,
+    };
   });
-
-  if (!result.claimedJob) {
-    return {};
-  }
-
-  return {
-    jobId: result.claimedJob.id,
-    payload: result.claimedJob.payload,
-    type: result.claimedJob.type,
-  };
 }
 
 export async function heartbeatOperation(
   engine: GroupCommitEngine,
   input: { jobId: string; workerId: string },
 ): Promise<void> {
-  await engine.submit({
-    type: "heartbeat",
-    jobId: input.jobId as JobId,
-    workerId: input.workerId as WorkerId,
+  return withSpan(tracer, "broker.heartbeat", {
+    [OSQUEUE_JOB_ID]: input.jobId,
+    [OSQUEUE_WORKER_ID]: input.workerId,
+  }, async () => {
+    await engine.submit({
+      type: "heartbeat",
+      jobId: input.jobId as JobId,
+      workerId: input.workerId as WorkerId,
+    });
   });
 }
 
@@ -132,10 +162,15 @@ export async function completeJobOperation(
   engine: GroupCommitEngine,
   input: { jobId: string; workerId: string },
 ): Promise<void> {
-  await engine.submit({
-    type: "complete",
-    jobId: input.jobId as JobId,
-    workerId: input.workerId as WorkerId,
+  return withSpan(tracer, "broker.completeJob", {
+    [OSQUEUE_JOB_ID]: input.jobId,
+    [OSQUEUE_WORKER_ID]: input.workerId,
+  }, async () => {
+    await engine.submit({
+      type: "complete",
+      jobId: input.jobId as JobId,
+      workerId: input.workerId as WorkerId,
+    });
   });
 }
 

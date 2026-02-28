@@ -1,7 +1,17 @@
 import type { Transport } from "@connectrpc/connect";
 import type { StorageBackend, QueueState, JobId, WorkerId } from "@osqueue/types";
 import { DiscoveryError, QUEUE_STATE_KEY } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_JOB_ID,
+  OSQUEUE_JOB_TYPE,
+  OSQUEUE_WORKER_ID,
+  OSQUEUE_JOBS_CLAIMED,
+} from "@osqueue/otel";
 import { z } from "zod";
+
+const tracer = createTracer("@osqueue/client");
 import {
   createConnectAdapter,
   createRestAdapter,
@@ -172,42 +182,66 @@ export class OsqueueClient<R extends JobTypeRegistry = DefaultRegistry> {
     payload: z.infer<R[T]>,
     maxAttempts?: number,
   ): Promise<JobId> {
-    const adapter = await this.getAdapter();
-    const result = await adapter.submitJob({
-      type,
-      payload,
-      maxAttempts,
+    return withSpan(tracer, "client.submitJob", {
+      [OSQUEUE_JOB_TYPE]: type,
+    }, async (span) => {
+      const adapter = await this.getAdapter();
+      const result = await adapter.submitJob({
+        type,
+        payload,
+        maxAttempts,
+      });
+      span.setAttribute(OSQUEUE_JOB_ID, result.jobId);
+      return result.jobId as JobId;
     });
-    return result.jobId as JobId;
   }
 
   async claimJob(
     workerId: WorkerId,
     types?: (string & keyof R)[],
   ): Promise<{ jobId: JobId; type: string; payload: unknown } | null> {
-    const adapter = await this.getAdapter();
-    const result = await adapter.claimJob({
-      workerId,
-      types,
+    return withSpan(tracer, "client.claimJob", {
+      [OSQUEUE_WORKER_ID]: workerId,
+    }, async (span) => {
+      const adapter = await this.getAdapter();
+      const result = await adapter.claimJob({
+        workerId,
+        types,
+      });
+
+      if (!result.jobId) {
+        span.setAttribute(OSQUEUE_JOBS_CLAIMED, 0);
+        return null;
+      }
+
+      span.setAttribute(OSQUEUE_JOB_ID, result.jobId);
+      span.setAttribute(OSQUEUE_JOBS_CLAIMED, 1);
+      return {
+        jobId: result.jobId as JobId,
+        type: result.type,
+        payload: result.payload,
+      };
     });
-
-    if (!result.jobId) return null;
-
-    return {
-      jobId: result.jobId as JobId,
-      type: result.type,
-      payload: result.payload,
-    };
   }
 
   async heartbeat(jobId: JobId, workerId: WorkerId): Promise<void> {
-    const adapter = await this.getAdapter();
-    await adapter.heartbeat({ jobId, workerId });
+    return withSpan(tracer, "client.heartbeat", {
+      [OSQUEUE_JOB_ID]: jobId,
+      [OSQUEUE_WORKER_ID]: workerId,
+    }, async () => {
+      const adapter = await this.getAdapter();
+      await adapter.heartbeat({ jobId, workerId });
+    });
   }
 
   async completeJob(jobId: JobId, workerId: WorkerId): Promise<void> {
-    const adapter = await this.getAdapter();
-    await adapter.completeJob({ jobId, workerId });
+    return withSpan(tracer, "client.completeJob", {
+      [OSQUEUE_JOB_ID]: jobId,
+      [OSQUEUE_WORKER_ID]: workerId,
+    }, async () => {
+      const adapter = await this.getAdapter();
+      await adapter.completeJob({ jobId, workerId });
+    });
   }
 
   async getStats() {

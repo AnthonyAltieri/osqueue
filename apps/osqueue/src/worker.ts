@@ -1,8 +1,14 @@
 import { OsqueueClient } from "@osqueue/client";
 import { Worker } from "@osqueue/worker";
+import { initTelemetry, shutdownTelemetry } from "@osqueue/otel";
 import { env } from "./env.js";
 import { registry } from "./registry.js";
 import { sleep } from "./utils/sleep.js";
+
+initTelemetry({
+  enabled: env.OTEL_ENABLED,
+  serviceName: "osqueue-worker",
+});
 
 const client = new OsqueueClient({ brokerUrl: env.BROKER_URL }, registry);
 
@@ -25,7 +31,9 @@ const worker = new Worker({
 worker.start();
 console.log("Worker started, polling for jobs...");
 
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
   console.log("Stopping worker...");
-  worker.stop().then(() => process.exit(0));
+  await worker.stop();
+  await shutdownTelemetry();
+  process.exit(0);
 });

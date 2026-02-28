@@ -1,5 +1,5 @@
 {
-  "name": "@osqueue/client",
+  "name": "@osqueue/otel",
   "version": "0.0.1",
   "type": "module",
   "license": "MIT",
@@ -19,18 +19,15 @@
     "build": "tsup src/index.ts --format esm --dts --target node20 --clean"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.0.0",
-    "@connectrpc/connect": "^2.0.0",
-    "@connectrpc/connect-node": "^2.0.0",
-    "@osqueue/otel": "workspace:*",
-    "@osqueue/proto": "workspace:*",
-    "@osqueue/storage": "workspace:*",
-    "@osqueue/types": "workspace:*",
-    "ws": "^8.18.0",
-    "zod": "^4.0.0"
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.57.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.57.0",
+    "@opentelemetry/resources": "^1.30.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@opentelemetry/sdk-metrics": "^1.30.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.1",
     "typescript": "^5.7.0"
   }
 }

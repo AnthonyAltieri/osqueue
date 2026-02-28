@@ -1,0 +1,13 @@
+export const OSQUEUE_JOB_ID = "osqueue.job.id";
+export const OSQUEUE_JOB_TYPE = "osqueue.job.type";
+export const OSQUEUE_WORKER_ID = "osqueue.worker.id";
+export const OSQUEUE_MUTATION_TYPE = "osqueue.mutation.type";
+export const OSQUEUE_BATCH_SIZE = "osqueue.batch.size";
+export const OSQUEUE_CAS_ATTEMPT = "osqueue.cas.attempt";
+export const OSQUEUE_STORAGE_KEY = "osqueue.storage.key";
+export const OSQUEUE_STORAGE_BACKEND = "osqueue.storage.backend";
+export const OSQUEUE_STORAGE_OPERATION = "osqueue.storage.operation";
+export const OSQUEUE_BROKER_ADDRESS = "osqueue.broker.address";
+export const OSQUEUE_ELECTION_RESULT = "osqueue.election.result";
+export const OSQUEUE_JOBS_CLAIMED = "osqueue.jobs.claimed";
+export const OSQUEUE_THROTTLE_DELAY_MS = "osqueue.throttle.delay_ms";
