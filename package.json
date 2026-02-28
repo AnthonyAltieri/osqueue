@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "changeset": "changeset",
     "release:version": "changeset version",
-    "release:publish": "changeset publish"
+    "release:publish": "changeset publish",
+    "docs:dev": "bun run --cwd apps/docs start",
+    "docs:build": "bun run --cwd apps/docs build"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

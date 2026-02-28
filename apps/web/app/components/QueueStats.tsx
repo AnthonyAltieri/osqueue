@@ -38,7 +38,7 @@ export function QueueStats({
   completedTotal,
 }: QueueStatsProps) {
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <StatCard
         label="Total in Queue"
         value={total}

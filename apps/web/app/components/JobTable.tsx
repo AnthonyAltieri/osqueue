@@ -44,58 +44,93 @@ export function JobTable({ jobs }: JobTableProps) {
   }
 
   return (
-    <div className="border border-border bg-surface-1 overflow-hidden">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
-              Status
-            </th>
-            <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
-              Job ID
-            </th>
-            <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
-              Type
-            </th>
-            <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
-              Worker
-            </th>
-            <th className="text-right px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
-              Age
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {jobs.map((job) => (
-            <tr
-              key={job.id}
-              className="border-b border-border-subtle last:border-0 hover:bg-surface-2/50 transition-colors animate-fade-in"
-            >
-              <td className="px-3 py-2">
-                <StatusBadge status={job.status} />
-              </td>
-              <td className="px-3 py-2 font-mono text-text-muted">
-                {job.id.slice(0, 8)}
-              </td>
-              <td className="px-3 py-2">
-                {job.type ? (
-                  <span className="text-purple">{job.type}</span>
-                ) : (
-                  <span className="text-text-dim">&mdash;</span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-text-muted">
-                {job.workerId ? job.workerId.slice(0, 8) : (
-                  <span className="text-text-dim">&mdash;</span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums text-text-muted">
+    <>
+      {/* Mobile card layout */}
+      <div className="sm:hidden space-y-2">
+        {jobs.map((job) => (
+          <div
+            key={job.id}
+            className="border border-border bg-surface-1 p-3 animate-fade-in space-y-1.5"
+          >
+            <div className="flex items-center justify-between">
+              <StatusBadge status={job.status} />
+              <span className="text-[10px] tabular-nums text-text-muted">
                 {formatAge(job.createdAt)}
-              </td>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono text-text-muted">
+                {job.id.slice(0, 8)}
+              </span>
+              {job.type ? (
+                <span className="text-xs text-purple">{job.type}</span>
+              ) : (
+                <span className="text-xs text-text-dim">&mdash;</span>
+              )}
+            </div>
+            {job.workerId && (
+              <div className="text-xs font-mono text-amber">
+                {job.workerId.slice(0, 8)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table layout */}
+      <div className="hidden sm:block border border-border bg-surface-1 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
+                Status
+              </th>
+              <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
+                Job ID
+              </th>
+              <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
+                Type
+              </th>
+              <th className="text-left px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
+                Worker
+              </th>
+              <th className="text-right px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-text-dim font-normal">
+                Age
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {jobs.map((job) => (
+              <tr
+                key={job.id}
+                className="border-b border-border-subtle last:border-0 hover:bg-surface-2/50 transition-colors animate-fade-in"
+              >
+                <td className="px-3 py-2">
+                  <StatusBadge status={job.status} />
+                </td>
+                <td className="px-3 py-2 font-mono text-text-muted">
+                  {job.id.slice(0, 8)}
+                </td>
+                <td className="px-3 py-2">
+                  {job.type ? (
+                    <span className="text-purple">{job.type}</span>
+                  ) : (
+                    <span className="text-text-dim">&mdash;</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 font-mono text-amber">
+                  {job.workerId ? job.workerId.slice(0, 8) : (
+                    <span className="text-text-dim">&mdash;</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-text-muted">
+                  {formatAge(job.createdAt)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
