@@ -109,16 +109,15 @@ export function ProducerPanel() {
 
         {/* Auto Submit */}
         <div className="flex items-center gap-3 pt-2 border-t border-border-subtle">
-          <button
-            onClick={() => setAutoSubmit(!autoSubmit)}
-            className={`px-3 py-1.5 text-xs border transition-colors ${
-              autoSubmit
-                ? "border-green bg-green-dim text-green"
-                : "border-border text-text-muted hover:border-text-dim"
-            }`}
-          >
-            {autoSubmit ? "Stop Auto" : "Auto Submit"}
-          </button>
+          <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoSubmit}
+              onChange={(e) => setAutoSubmit(e.target.checked)}
+              className="accent-purple"
+            />
+            Auto Submit
+          </label>
           <label className="flex items-center gap-2 text-xs text-text-muted">
             every
             <input
