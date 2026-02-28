@@ -9,5 +9,8 @@ http://demo.{$DOMAIN} {
 }
 
 http://api.{$DOMAIN} {
-	reverse_proxy localhost:8080
+	reverse_proxy localhost:8080 localhost:8081 {
+		lb_policy first
+		fail_duration 5s
+	}
 }

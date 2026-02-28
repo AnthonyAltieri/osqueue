@@ -14,6 +14,8 @@ const envSchema = z.object({
   BROKER_HEARTBEAT_INTERVAL_MS: z.coerce.number().default(3000),
   S3_MAX_READS_PER_MINUTE: z.coerce.number().default(0),
   S3_MAX_WRITES_PER_MINUTE: z.coerce.number().default(0),
+  S3_MAX_WRITES_PER_DAY: z.coerce.number().default(0),
+  BROKER_HEARTBEAT_TIMEOUT_MS: z.coerce.number().default(10_000),
 });
 
 export const env = envSchema.parse(process.env);
