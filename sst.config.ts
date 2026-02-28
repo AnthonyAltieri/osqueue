@@ -155,7 +155,7 @@ export default $config({
           `-e S3_BUCKET=${bucketName}`,
           `-e S3_REGION=${regionName}`,
           `-e GROUP_COMMIT_INTERVAL_MS=2000`,
-          `-e BROKER_HEARTBEAT_INTERVAL_MS=30000`,
+          `-e BROKER_HEARTBEAT_INTERVAL_MS=3000`,
           `-e S3_MAX_WRITES_PER_MINUTE=30`,
           `-e S3_MAX_READS_PER_MINUTE=60`,
         ].join(" ");

@@ -211,8 +211,8 @@ export class GroupCommitEngine {
         return;
       } catch (err) {
         if (err instanceof CASConflictError) {
-          // Invalidate cache and retry
-          this.cachedState = null;
+          // Invalidate version to force re-read, but keep cachedState
+          // so that getCachedState() still returns a valid snapshot for reads
           this.cachedVersion = null;
 
           if (attempt < this.maxRetries) {
