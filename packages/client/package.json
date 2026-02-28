@@ -22,6 +22,7 @@
     "@bufbuild/protobuf": "^2.0.0",
     "@connectrpc/connect": "^2.0.0",
     "@connectrpc/connect-node": "^2.0.0",
+    "@osqueue/otel": "workspace:*",
     "@osqueue/proto": "workspace:*",
     "@osqueue/storage": "workspace:*",
     "@osqueue/types": "workspace:*",

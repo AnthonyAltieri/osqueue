@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@osqueue/client": "workspace:*",
+    "@osqueue/otel": "workspace:*",
     "@osqueue/types": "workspace:*",
     "zod": "^4.0.0"
   },

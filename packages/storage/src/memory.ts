@@ -8,6 +8,15 @@ import {
   StorageBackendError,
   wrapUnknownError,
 } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_STORAGE_KEY,
+  OSQUEUE_STORAGE_BACKEND,
+  OSQUEUE_STORAGE_OPERATION,
+} from "@osqueue/otel";
+
+const tracer = createTracer("@osqueue/storage");
 
 export interface MemoryBackendOptions {
   /** Artificial latency in ms added to each operation */
@@ -54,13 +63,19 @@ export class MemoryBackend implements StorageBackend {
   }
 
   async read(key: string): Promise<StorageReadResult | null> {
-    await this.maybeDelay();
-    const obj = this.objects.get(key);
-    if (!obj) return null;
-    return {
-      data: new Uint8Array(obj.data),
-      version: this.versionToken(obj.version),
-    };
+    return withSpan(tracer, "storage.read", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "memory",
+      [OSQUEUE_STORAGE_OPERATION]: "read",
+    }, async () => {
+      await this.maybeDelay();
+      const obj = this.objects.get(key);
+      if (!obj) return null;
+      return {
+        data: new Uint8Array(obj.data),
+        version: this.versionToken(obj.version),
+      };
+    });
   }
 
   async write(
@@ -68,31 +83,43 @@ export class MemoryBackend implements StorageBackend {
     data: Uint8Array,
     expectedVersion: StorageVersion,
   ): Promise<StorageVersion> {
-    await this.maybeDelay();
-    const obj = this.objects.get(key);
-    if (!obj) {
-      throw new CASConflictError("Object not found for CAS write");
-    }
-    if (String(obj.version) !== expectedVersion.token) {
-      throw new CASConflictError(
-        `Expected version ${expectedVersion.token}, got ${obj.version}`,
-      );
-    }
-    const newVersion = obj.version + 1;
-    this.objects.set(key, { data: new Uint8Array(data), version: newVersion });
-    return this.versionToken(newVersion);
+    return withSpan(tracer, "storage.write", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "memory",
+      [OSQUEUE_STORAGE_OPERATION]: "write",
+    }, async () => {
+      await this.maybeDelay();
+      const obj = this.objects.get(key);
+      if (!obj) {
+        throw new CASConflictError("Object not found for CAS write");
+      }
+      if (String(obj.version) !== expectedVersion.token) {
+        throw new CASConflictError(
+          `Expected version ${expectedVersion.token}, got ${obj.version}`,
+        );
+      }
+      const newVersion = obj.version + 1;
+      this.objects.set(key, { data: new Uint8Array(data), version: newVersion });
+      return this.versionToken(newVersion);
+    });
   }
 
   async createIfNotExists(
     key: string,
     data: Uint8Array,
   ): Promise<StorageVersion> {
-    await this.maybeDelay();
-    if (this.objects.has(key)) {
-      throw new CASConflictError("Object already exists");
-    }
-    const version = 1;
-    this.objects.set(key, { data: new Uint8Array(data), version });
-    return this.versionToken(version);
+    return withSpan(tracer, "storage.createIfNotExists", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "memory",
+      [OSQUEUE_STORAGE_OPERATION]: "createIfNotExists",
+    }, async () => {
+      await this.maybeDelay();
+      if (this.objects.has(key)) {
+        throw new CASConflictError("Object already exists");
+      }
+      const version = 1;
+      this.objects.set(key, { data: new Uint8Array(data), version });
+      return this.versionToken(version);
+    });
   }
 }

@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { OsqueueClient, type JobTypeRegistry, type DefaultRegistry } from "@osqueue/client";
 import type { JobId, WorkerId } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_JOB_ID,
+  OSQUEUE_JOB_TYPE,
+  OSQUEUE_WORKER_ID,
+} from "@osqueue/otel";
+
+const tracer = createTracer("@osqueue/worker");
 
 export type TypedJobHandler<P = unknown> = (
   payload: P,
@@ -112,61 +121,71 @@ export class Worker<R extends JobTypeRegistry = DefaultRegistry> {
       );
       if (!job) return;
 
-      const claimed: ClaimedJobInfo = {
-        jobId: job.jobId,
-        type: job.type,
-        payload: job.payload,
-      };
-      this.onJobClaimed?.(claimed);
+      await withSpan(tracer, "worker.processJob", {
+        [OSQUEUE_JOB_ID]: job.jobId,
+        [OSQUEUE_JOB_TYPE]: job.type,
+        [OSQUEUE_WORKER_ID]: this.workerId,
+      }, async (span) => {
+        const claimed: ClaimedJobInfo = {
+          jobId: job.jobId,
+          type: job.type,
+          payload: job.payload,
+        };
+        this.onJobClaimed?.(claimed);
 
-      const schema = this.client.registry[job.type as keyof R];
-      let validatedPayload = job.payload;
-      if (schema) {
-        const parseResult = schema.safeParse(job.payload);
-        if (!parseResult.success) {
-          console.error(
-            `Invalid payload for job ${job.jobId} (type "${job.type}"): ${parseResult.error.message}`,
-          );
-          await this.client.completeJob(job.jobId, this.workerId);
+        const schema = this.client.registry[job.type as keyof R];
+        let validatedPayload = job.payload;
+        if (schema) {
+          const parseResult = schema.safeParse(job.payload);
+          if (!parseResult.success) {
+            span.addEvent("validation_failed");
+            console.error(
+              `Invalid payload for job ${job.jobId} (type "${job.type}"): ${parseResult.error.message}`,
+            );
+            await this.client.completeJob(job.jobId, this.workerId);
+            return;
+          }
+          validatedPayload = parseResult.data;
+        }
+
+        const handler = this.handlers[job.type as keyof R] as TypedJobHandler | undefined;
+        if (!handler) {
+          span.addEvent("no_handler");
+          console.error(`No handler for job type "${job.type}", job ${job.jobId}`);
           return;
         }
-        validatedPayload = parseResult.data;
-      }
 
-      const handler = this.handlers[job.type as keyof R] as TypedJobHandler | undefined;
-      if (!handler) {
-        console.error(`No handler for job type "${job.type}", job ${job.jobId}`);
-        return;
-      }
+        this.activeJobs++;
+        const controller = new AbortController();
+        this.abortControllers.set(job.jobId, controller);
 
-      this.activeJobs++;
-      const controller = new AbortController();
-      this.abortControllers.set(job.jobId, controller);
+        const heartbeatTimer = setInterval(async () => {
+          try {
+            await this.client.heartbeat(job.jobId, this.workerId);
+          } catch {
+            // Ignore heartbeat errors; retry next interval.
+          }
+        }, this.heartbeatIntervalMs);
+        this.heartbeatTimers.set(job.jobId, heartbeatTimer);
 
-      const heartbeatTimer = setInterval(async () => {
         try {
-          await this.client.heartbeat(job.jobId, this.workerId);
-        } catch {
-          // Ignore heartbeat errors; retry next interval.
+          await handler(validatedPayload, controller.signal);
+          await this.client.completeJob(job.jobId, this.workerId);
+          span.addEvent("job_completed");
+          this.onJobCompleted?.(claimed);
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            console.error(`Job ${job.jobId} failed:`, error);
+            this.onJobFailed?.(claimed, error);
+          }
+          throw error;
+        } finally {
+          clearInterval(heartbeatTimer);
+          this.heartbeatTimers.delete(job.jobId);
+          this.abortControllers.delete(job.jobId);
+          this.activeJobs--;
         }
-      }, this.heartbeatIntervalMs);
-      this.heartbeatTimers.set(job.jobId, heartbeatTimer);
-
-      try {
-        await handler(validatedPayload, controller.signal);
-        await this.client.completeJob(job.jobId, this.workerId);
-        this.onJobCompleted?.(claimed);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error(`Job ${job.jobId} failed:`, error);
-          this.onJobFailed?.(claimed, error);
-        }
-      } finally {
-        clearInterval(heartbeatTimer);
-        this.heartbeatTimers.delete(job.jobId);
-        this.abortControllers.delete(job.jobId);
-        this.activeJobs--;
-      }
+      });
     } catch {
       try {
         await this.client.reconnect();

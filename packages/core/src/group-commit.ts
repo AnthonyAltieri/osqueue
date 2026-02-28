@@ -12,8 +12,16 @@ import {
   DEFAULT_HEARTBEAT_TIMEOUT_MS,
   wrapUnknownError,
 } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_MUTATION_TYPE,
+  OSQUEUE_BATCH_SIZE,
+  OSQUEUE_CAS_ATTEMPT,
+} from "@osqueue/otel";
 import { applyMutation, emptyState, expireHeartbeats } from "./state.js";
 
+const tracer = createTracer("@osqueue/core");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -165,74 +173,82 @@ export class GroupCommitEngine {
 
     // Drain current buffer
     const batch = this.buffer.splice(0);
+    const mutationTypes = [...new Set(batch.map((pm) => pm.mutation.type))].join(",");
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      // Ensure we have state
-      if (!this.cachedState || !this.cachedVersion) {
-        await this.refreshCache();
-      }
-      if (!this.cachedState || !this.cachedVersion) {
-        throw new EngineStateError("Failed to read queue state");
-      }
-
-      // Apply all mutations to a copy of the state
-      const now = Date.now();
-      let state = this.cachedState;
-      const results: MutationResult[] = [];
-
-      // Run heartbeat expiry on every write pass
-      state = expireHeartbeats(state, now, this.heartbeatTimeoutMs);
-
-      for (const pm of batch) {
-        const { state: newState, result } = applyMutation(
-          state,
-          pm.mutation,
-          now,
-        );
-        state = newState;
-        results.push(result);
-      }
-
-      // CAS write
-      try {
-        const newVersion = await this.storage.write(
-          this.stateKey,
-          encoder.encode(JSON.stringify(state)),
-          this.cachedVersion,
-        );
-
-        // Success — update cache and resolve all promises
-        this.cachedState = state;
-        this.cachedVersion = newVersion;
-
-        for (let i = 0; i < batch.length; i++) {
-          batch[i]!.resolve(results[i]!);
+    await withSpan(tracer, "engine.processBuffer", {
+      [OSQUEUE_BATCH_SIZE]: batch.length,
+      [OSQUEUE_MUTATION_TYPE]: mutationTypes,
+    }, async (span) => {
+      for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+        // Ensure we have state
+        if (!this.cachedState || !this.cachedVersion) {
+          await this.refreshCache();
         }
-        return;
-      } catch (err) {
-        if (err instanceof CASConflictError) {
-          // Invalidate version to force re-read, but keep cachedState
-          // so that getCachedState() still returns a valid snapshot for reads
-          this.cachedVersion = null;
-
-          if (attempt < this.maxRetries) {
-            await new Promise((r) =>
-              setTimeout(r, this.conflictBackoffMs * (attempt + 1)),
-            );
-            continue;
-          }
+        if (!this.cachedState || !this.cachedVersion) {
+          throw new EngineStateError("Failed to read queue state");
         }
-        // Non-CAS error or max retries exceeded — reject batch
+
+        // Apply all mutations to a copy of the state
+        const now = Date.now();
+        let state = this.cachedState;
+        const results: MutationResult[] = [];
+
+        // Run heartbeat expiry on every write pass
+        state = expireHeartbeats(state, now, this.heartbeatTimeoutMs);
+
         for (const pm of batch) {
-          pm.reject(
-            wrapUnknownError(
-              err,
-              (message, cause) => new EngineStateError(message, { cause }),
-            ),
+          const { state: newState, result } = applyMutation(
+            state,
+            pm.mutation,
+            now,
           );
+          state = newState;
+          results.push(result);
         }
-        return;
+
+        // CAS write
+        try {
+          const newVersion = await this.storage.write(
+            this.stateKey,
+            encoder.encode(JSON.stringify(state)),
+            this.cachedVersion,
+          );
+
+          // Success — update cache and resolve all promises
+          this.cachedState = state;
+          this.cachedVersion = newVersion;
+          span.setAttribute(OSQUEUE_CAS_ATTEMPT, attempt + 1);
+
+          for (let i = 0; i < batch.length; i++) {
+            batch[i]!.resolve(results[i]!);
+          }
+          return;
+        } catch (err) {
+          if (err instanceof CASConflictError) {
+            span.addEvent("cas_conflict", { attempt: attempt + 1 });
+            // Invalidate version to force re-read, but keep cachedState
+            // so that getCachedState() still returns a valid snapshot for reads
+            this.cachedVersion = null;
+
+            if (attempt < this.maxRetries) {
+              await new Promise((r) =>
+                setTimeout(r, this.conflictBackoffMs * (attempt + 1)),
+              );
+              continue;
+            }
+          }
+          // Non-CAS error or max retries exceeded — reject batch
+          for (const pm of batch) {
+            pm.reject(
+              wrapUnknownError(
+                err,
+                (message, cause) => new EngineStateError(message, { cause }),
+              ),
+            );
+          }
+          return;
+        }
       }
-    }
+    });
   }
 }

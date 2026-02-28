@@ -8,6 +8,15 @@ import {
   StorageBackendError,
   wrapUnknownError,
 } from "@osqueue/types";
+import {
+  createTracer,
+  withSpan,
+  OSQUEUE_STORAGE_KEY,
+  OSQUEUE_STORAGE_BACKEND,
+  OSQUEUE_STORAGE_OPERATION,
+} from "@osqueue/otel";
+
+const tracer = createTracer("@osqueue/storage");
 
 export interface GCSBackendOptions {
   bucket: string;
@@ -42,22 +51,28 @@ export class GCSBackend implements StorageBackend {
   }
 
   async read(key: string): Promise<StorageReadResult | null> {
-    const file = this.bucket.file(this.fullKey(key));
-    try {
-      const [contents] = await file.download();
-      const [metadata] = await file.getMetadata();
-      return {
-        data: new Uint8Array(contents),
-        version: { token: String(metadata.generation) },
-      };
-    } catch (err: any) {
-      if (err.code === 404) return null;
-      throw wrapUnknownError(
-        err,
-        (message, cause) =>
-          new StorageBackendError(`GCS read failed: ${message}`, { cause }),
-      );
-    }
+    return withSpan(tracer, "storage.read", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "gcs",
+      [OSQUEUE_STORAGE_OPERATION]: "read",
+    }, async () => {
+      const file = this.bucket.file(this.fullKey(key));
+      try {
+        const [contents] = await file.download();
+        const [metadata] = await file.getMetadata();
+        return {
+          data: new Uint8Array(contents),
+          version: { token: String(metadata.generation) },
+        };
+      } catch (err: any) {
+        if (err.code === 404) return null;
+        throw wrapUnknownError(
+          err,
+          (message, cause) =>
+            new StorageBackendError(`GCS read failed: ${message}`, { cause }),
+        );
+      }
+    });
   }
 
   async write(
@@ -65,51 +80,63 @@ export class GCSBackend implements StorageBackend {
     data: Uint8Array,
     expectedVersion: StorageVersion,
   ): Promise<StorageVersion> {
-    const file = this.bucket.file(this.fullKey(key));
-    try {
-      await file.save(Buffer.from(data), {
-        resumable: false,
-        preconditionOpts: {
-          ifGenerationMatch: parseInt(expectedVersion.token, 10),
-        },
-        contentType: "application/json",
-      });
-      const [metadata] = await file.getMetadata();
-      return { token: String(metadata.generation) };
-    } catch (err: any) {
-      if (err.code === 412) {
-        throw new CASConflictError("GCS generation mismatch");
+    return withSpan(tracer, "storage.write", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "gcs",
+      [OSQUEUE_STORAGE_OPERATION]: "write",
+    }, async () => {
+      const file = this.bucket.file(this.fullKey(key));
+      try {
+        await file.save(Buffer.from(data), {
+          resumable: false,
+          preconditionOpts: {
+            ifGenerationMatch: parseInt(expectedVersion.token, 10),
+          },
+          contentType: "application/json",
+        });
+        const [metadata] = await file.getMetadata();
+        return { token: String(metadata.generation) };
+      } catch (err: any) {
+        if (err.code === 412) {
+          throw new CASConflictError("GCS generation mismatch");
+        }
+        throw wrapUnknownError(
+          err,
+          (message, cause) =>
+            new StorageBackendError(`GCS write failed: ${message}`, { cause }),
+        );
       }
-      throw wrapUnknownError(
-        err,
-        (message, cause) =>
-          new StorageBackendError(`GCS write failed: ${message}`, { cause }),
-      );
-    }
+    });
   }
 
   async createIfNotExists(
     key: string,
     data: Uint8Array,
   ): Promise<StorageVersion> {
-    const file = this.bucket.file(this.fullKey(key));
-    try {
-      await file.save(Buffer.from(data), {
-        resumable: false,
-        preconditionOpts: { ifGenerationMatch: 0 },
-        contentType: "application/json",
-      });
-      const [metadata] = await file.getMetadata();
-      return { token: String(metadata.generation) };
-    } catch (err: any) {
-      if (err.code === 412) {
-        throw new CASConflictError("GCS object already exists");
+    return withSpan(tracer, "storage.createIfNotExists", {
+      [OSQUEUE_STORAGE_KEY]: key,
+      [OSQUEUE_STORAGE_BACKEND]: "gcs",
+      [OSQUEUE_STORAGE_OPERATION]: "createIfNotExists",
+    }, async () => {
+      const file = this.bucket.file(this.fullKey(key));
+      try {
+        await file.save(Buffer.from(data), {
+          resumable: false,
+          preconditionOpts: { ifGenerationMatch: 0 },
+          contentType: "application/json",
+        });
+        const [metadata] = await file.getMetadata();
+        return { token: String(metadata.generation) };
+      } catch (err: any) {
+        if (err.code === 412) {
+          throw new CASConflictError("GCS object already exists");
+        }
+        throw wrapUnknownError(
+          err,
+          (message, cause) =>
+            new StorageBackendError(`GCS create failed: ${message}`, { cause }),
+        );
       }
-      throw wrapUnknownError(
-        err,
-        (message, cause) =>
-          new StorageBackendError(`GCS create failed: ${message}`, { cause }),
-      );
-    }
+    });
   }
 }

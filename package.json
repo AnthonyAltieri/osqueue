@@ -8,7 +8,7 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
-    "build:packages": "bun run --filter @osqueue/types build && bun run --filter @osqueue/proto build && bun run --filter @osqueue/storage build && bun run --filter @osqueue/otel build && bun run --filter @osqueue/core build && bun run --filter @osqueue/client build && bun run --filter @osqueue/worker build && bun run --filter @osqueue/broker build",
+    "build:packages": "bun run --filter @osqueue/types build && bun run --filter @osqueue/proto build && bun run --filter @osqueue/otel build && bun run --filter @osqueue/storage build && bun run --filter @osqueue/core build && bun run --filter @osqueue/client build && bun run --filter @osqueue/worker build && bun run --filter @osqueue/broker build",
     "build": "bun run build:packages && bun run --filter @osqueue/example build && bun run --filter @osqueue/web build",
     "test": "bun run build:packages && vitest run",
     "test:watch": "vitest",

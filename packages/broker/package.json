@@ -27,6 +27,7 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/websocket": "^11.2.0",
     "@osqueue/core": "workspace:*",
+    "@osqueue/otel": "workspace:*",
     "@osqueue/proto": "workspace:*",
     "@osqueue/storage": "workspace:*",
     "@osqueue/types": "workspace:*",
