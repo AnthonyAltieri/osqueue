@@ -13,6 +13,7 @@
   "dependencies": {
     "@osqueue/broker": "workspace:*",
     "@osqueue/client": "workspace:*",
+    "@osqueue/otel": "workspace:*",
     "@osqueue/storage": "workspace:*",
     "@osqueue/types": "workspace:*",
     "@osqueue/worker": "workspace:*",

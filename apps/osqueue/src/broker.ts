@@ -1,6 +1,12 @@
 import { BrokerServer } from "@osqueue/broker";
+import { initTelemetry, shutdownTelemetry } from "@osqueue/otel";
 import { env } from "./env.js";
 import { createStorage } from "./storage.js";
+
+initTelemetry({
+  enabled: env.OTEL_ENABLED,
+  serviceName: "osqueue-broker",
+});
 
 const storage = createStorage();
 
@@ -16,9 +22,11 @@ const server = new BrokerServer({
 await server.start();
 console.log(`Broker listening on ${server.address}`);
 
-function shutdown() {
+async function shutdown() {
   console.log("Shutting down broker...");
-  server.stop().then(() => process.exit(0));
+  await server.stop();
+  await shutdownTelemetry();
+  process.exit(0);
 }
 
 process.on("SIGINT", shutdown);
