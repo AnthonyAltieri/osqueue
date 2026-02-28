@@ -8,6 +8,12 @@ The storage layer provides a minimal object-storage interface with CAS (compare-
 
 ## StorageBackend Interface
 
+The `StorageBackend` interface and related types (`StorageVersion`, `StorageReadResult`) are defined in `@osqueue/types`:
+
+```typescript
+import type { StorageBackend, StorageVersion, StorageReadResult } from "@osqueue/types";
+```
+
 ```typescript
 interface StorageBackend {
   read(key: string): Promise<StorageReadResult | null>;

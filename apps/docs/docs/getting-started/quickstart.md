@@ -111,11 +111,12 @@ const client = new OsqueueClient(
 const worker = new Worker({
   client,
   handlers: {
-    "email:send": async (payload) => {
+    "email:send": async (payload, signal) => {
       console.log(`Sending email to ${payload.to}: "${payload.subject}"`);
       // payload is typed as { to: string; subject: string; body: string }
+      // signal is an AbortSignal, triggered when worker.stop() is called
     },
-    "report:generate": async (payload) => {
+    "report:generate": async (payload, signal) => {
       console.log(`Generating ${payload.format} report ${payload.reportId}`);
       // payload is typed as { reportId: string; format: "pdf" | "csv" }
     },

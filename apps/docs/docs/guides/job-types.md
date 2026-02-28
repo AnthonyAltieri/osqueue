@@ -63,11 +63,12 @@ import { Worker } from "@osqueue/worker";
 const worker = new Worker({
   client,
   handlers: {
-    "email:send": async (payload) => {
+    "email:send": async (payload, signal) => {
       // payload: { to: string; subject: string; body: string }
+      // signal: AbortSignal — triggered when worker.stop() is called
       console.log(`Sending to ${payload.to}`);
     },
-    "report:generate": async (payload) => {
+    "report:generate": async (payload, signal) => {
       // payload: { reportId: string; format: "pdf" | "csv" }
       console.log(`Format: ${payload.format}`);
     },
@@ -85,6 +86,12 @@ When a worker claims a job, the payload is validated against the registry schema
 4. If validation passes, the validated data is passed to the handler
 
 This catches payload corruption or schema mismatches between producers and workers.
+
+You can also set `maxAttempts` (default: 3) when submitting a job to control how many times it can be retried before being permanently removed:
+
+```typescript
+await client.submitJob("email:send", payload, 5); // up to 5 attempts
+```
 
 ## Adding New Job Types
 

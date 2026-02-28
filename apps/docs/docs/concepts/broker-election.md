@@ -60,7 +60,9 @@ Broker B:  [other_leader]─────retry(10s)─────────┤
 Broker B:  ────────────────────────────── [elected]
 ```
 
-In the default production entrypoint, two brokers run simultaneously on ports 8080 and 8081. One becomes leader; the other retries every 10 seconds. If the leader dies, the standby takes over within one retry cycle.
+In the default production entrypoint (`entrypoint.sh`), two brokers run simultaneously on ports 8080 and 8081. One becomes leader; the other retries every 10 seconds via a shell loop (the `BrokerElection` class itself is single-shot — the retry logic is in the entrypoint script). If the leader dies, the standby takes over within one retry cycle.
+
+Note: if a broker's own heartbeat goes stale (e.g., due to a temporary network partition), it falls through to the takeover logic and re-registers itself rather than returning `"already_leader"`.
 
 ### Leadership Checks
 

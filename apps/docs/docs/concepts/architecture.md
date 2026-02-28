@@ -43,7 +43,7 @@ osqueue stores all queue state in a single JSON file (`queue.json`) on object st
 }
 ```
 
-Every mutation (enqueue, claim, heartbeat, complete) modifies this single file through a compare-and-swap (CAS) operation. This eliminates the need for a database while maintaining consistency.
+Mutations (enqueue, claim, heartbeat, complete) are batched by the `GroupCommitEngine` and written to this file through compare-and-swap (CAS) operations. This eliminates the need for a database while maintaining consistency.
 
 ## Why Object Storage?
 
@@ -59,14 +59,15 @@ The tradeoff is throughput: object storage has higher per-request latency than a
 ```
 @osqueue/types          ← Shared types, errors, constants
     ↑
-@osqueue/proto          ← Protocol buffer definitions
-    ↑
-@osqueue/storage        ← S3, GCS, Memory backends
-    ↑
-@osqueue/core           ← State machine, election, group-commit
-    ↑
 ┌───┴────┬──────────┐
 │        │          │
+@osqueue/proto     @osqueue/storage   ← S3, GCS, Memory backends
+│ (protobuf)            ↑
+│        ↑              │
+│   @osqueue/core       │  ← State machine, election, group-commit
+│        ↑              │
+├────┬───┘              │
+│    │                  │
 @osqueue/client    @osqueue/broker
     ↑               ↑
 @osqueue/worker     │

@@ -14,7 +14,7 @@ osqueue includes a web dashboard built with React, TanStack Router, and Tailwind
 bunx sst dev
 ```
 
-This starts the broker, web dashboard, and provisions an S3 bucket automatically. The dashboard is available at `http://localhost:3001`.
+This starts the broker and provisions an S3 bucket automatically. Run the web dashboard separately (see Manual Setup below).
 
 ### Manual Setup
 
@@ -31,24 +31,17 @@ VITE_BROKER_URL=http://localhost:8080 bun run dev
 
 ## Dashboard Features
 
-### Queue Stats
+The dashboard has multiple pages accessible via the navigation.
 
-The dashboard header shows real-time queue statistics:
+### Main Dashboard (`/`)
 
-- **Total** — number of jobs currently in the queue
-- **Unclaimed** — jobs waiting to be picked up by a worker
-- **In Progress** — jobs currently being processed
-- **Completed** — running total of all completed jobs
+- **Queue Stats** — real-time counts of total, unclaimed, in-progress, and completed jobs
+- **Active Workers** — broker connection status and active worker information
+- **Job Table** — lists all active jobs with ID, status, type, worker, attempts, and timestamps
+- **Activity Log** — real-time event log
+- **Raw State** — view the raw `queue.json` state
 
-### Job Table
-
-Lists all active jobs with details:
-
-- Job ID, status, type, assigned worker
-- Attempt count and max attempts
-- Created and last heartbeat timestamps
-
-### Producer Panel
+### Producer Page (`/producer`)
 
 Submit jobs directly from the browser:
 
@@ -56,7 +49,7 @@ Submit jobs directly from the browser:
 - Enter a JSON payload
 - Click submit and see the job appear in the job table
 
-### Worker Panel
+### Worker Page (`/worker`)
 
 Displays connected worker information and active job assignments.
 
@@ -65,7 +58,7 @@ Displays connected worker information and active job assignments.
 An indicator showing whether the dashboard is connected to the broker. The dashboard auto-detects the broker URL:
 
 - If `VITE_BROKER_URL` is set, it uses that directly
-- On a real domain (e.g., `demo.osqueue.com`), it connects to `api.osqueue.com` (via Caddy reverse proxy)
+- On a real domain (e.g., `demo.osqueue.com`), it connects to `api.osqueue.com` (via CloudFront → Caddy reverse proxy)
 - On localhost, it connects to `localhost:8080`
 
 ## Transport Configuration

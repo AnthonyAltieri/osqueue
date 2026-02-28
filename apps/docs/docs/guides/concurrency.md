@@ -45,7 +45,7 @@ const worker = new Worker({
 });
 ```
 
-Make sure the broker's `heartbeatTimeoutMs` (default: 30s) is at least 2-3x the worker's `heartbeatIntervalMs` to avoid false expiry.
+Make sure the job heartbeat timeout (`DEFAULT_HEARTBEAT_TIMEOUT_MS`, default: 30s) is at least 2-3x the worker's `heartbeatIntervalMs` to avoid false expiry. Note: this is different from the broker's own `heartbeatTimeoutMs` (default: 10s) which controls broker election liveness.
 
 ## Scaling: Processes vs Concurrency
 

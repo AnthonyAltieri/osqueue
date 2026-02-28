@@ -133,11 +133,11 @@ worker.activeJobCount; // number
 
 1. **Poll**: On each interval, check if `activeJobs < concurrency`
 2. **Claim**: Call `claimJob(workerId, handledTypes)` on the broker
-3. **Validate**: Parse the payload against the registry schema (if available)
+3. **Validate**: Parse the payload against the registry schema (if available). If validation fails, the job is **completed (removed)** to prevent invalid payloads from retrying indefinitely
 4. **Execute**: Run the handler with the validated payload and an `AbortSignal`
 5. **Heartbeat**: Send heartbeats every `heartbeatIntervalMs` during execution
 6. **Complete**: On success, call `completeJob()` to remove the job
-7. **Error**: On failure, log the error and invoke `onJobFailed` (job stays in queue for retry)
+7. **Error**: On failure, log the error and invoke `onJobFailed` (the job's heartbeat stops, and the broker will eventually expire it for retry)
 8. **Reconnect**: If a request fails, attempt to reconnect to the broker
 
 ## Graceful Shutdown

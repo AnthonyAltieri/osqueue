@@ -55,7 +55,7 @@ cd apps/web
 VITE_BROKER_URL=http://localhost:8080 bun run dev
 ```
 
-Open `http://localhost:3001` to see the dashboard.
+Open the URL shown in the Vite output (typically `http://localhost:5173`) to see the dashboard.
 
 ## Environment Variables
 

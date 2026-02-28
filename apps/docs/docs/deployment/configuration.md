@@ -33,8 +33,8 @@ All osqueue configuration is done via environment variables.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `S3_MAX_READS_PER_MINUTE` | number | `0` (disabled) | Maximum storage read operations per minute |
-| `S3_MAX_WRITES_PER_MINUTE` | number | `0` (disabled) | Maximum storage write operations per minute |
+| `S3_MAX_READS_PER_MINUTE` | number | `0` (disabled) | Maximum storage read operations per minute (applies to all backends, not just S3) |
+| `S3_MAX_WRITES_PER_MINUTE` | number | `0` (disabled) | Maximum storage write operations per minute (applies to all backends, not just S3) |
 
 ### Web Dashboard
 
@@ -47,7 +47,7 @@ All osqueue configuration is done via environment variables.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `DOMAIN` | string | — | Domain name for Caddy HTTPS (production only) |
+| `DOMAIN` | string | — | Domain name for Caddy routing (production only; TLS is handled by CloudFront) |
 
 ## Tuning Guide
 

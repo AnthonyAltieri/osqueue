@@ -18,9 +18,11 @@ Every osqueue error has a unique `_tag` string that identifies the error type. T
 
 ## Error Catalog
 
-| Tag | Class | Package | When Thrown |
-|-----|-------|---------|------------|
-| `CASConflictError` | `CASConflictError` | types | Storage version mismatch during CAS write |
+All error classes are **defined** in `@osqueue/types` but **thrown** by their respective packages.
+
+| Tag | Class | Thrown By | When Thrown |
+|-----|-------|-----------|------------|
+| `CASConflictError` | `CASConflictError` | storage | Storage version mismatch during CAS write |
 | `ConfigError` | `ConfigError` | types | Invalid configuration (missing env vars, bad values) |
 | `DiscoveryError` | `DiscoveryError` | client | Cannot find broker via storage or config |
 | `TransportConfigError` | `TransportConfigError` | client | Invalid transport configuration |
@@ -75,6 +77,30 @@ if (error instanceof TransportRequestError) {
   console.log(error.path);      // "/v1/jobs"
   console.log(error.status);    // 500
   console.log(error.remoteTag); // "_tag from server error response"
+}
+```
+
+## BrokerLeadershipError Details
+
+`BrokerLeadershipError` includes the current leader's address:
+
+```typescript
+import { BrokerLeadershipError } from "@osqueue/types";
+
+if (error instanceof BrokerLeadershipError) {
+  console.log(error.leader);   // "0.0.0.0:8080" (the active broker)
+}
+```
+
+## BrokerProtocolError Details
+
+`BrokerProtocolError` includes the method that failed:
+
+```typescript
+import { BrokerProtocolError } from "@osqueue/types";
+
+if (error instanceof BrokerProtocolError) {
+  console.log(error.method);   // "invalidMethod"
 }
 ```
 

@@ -23,7 +23,7 @@ sidebar_position: 4
               │               │
               ▼               ▼
        ┌────────────┐  ┌───────────┐
-       │ completed   │  │  dropped  │
+       │ completed   │  │ exhausted │
        │ (removed)   │  │ (removed) │
        └────────────┘  └───────────┘
                         heartbeat timeout
@@ -76,9 +76,15 @@ When the handler finishes successfully, the worker calls `completeJob(jobId, wor
 On every write pass, the broker runs heartbeat expiry. For each `in_progress` job where `now - heartbeat > heartbeatTimeoutMs` (default: 30 seconds):
 
 - If `attempts < maxAttempts` (default: 3): reset to `"unclaimed"` for retry
-- If `attempts >= maxAttempts`: drop the job entirely (removed from the array)
+- If `attempts >= maxAttempts`: remove the job entirely (dropped from the array)
 
 This handles worker crashes, network partitions, and unresponsive handlers. Jobs are automatically retried up to `maxAttempts` times before being permanently discarded.
+
+Note: there is no explicit "fail" or "nack" operation. When a handler throws, the worker simply stops sending heartbeats for that job. The broker's expiry logic eventually detects the stale heartbeat and resets the job to `"unclaimed"` for retry.
+
+### Payload Validation
+
+If the worker has a Zod schema registry, claimed job payloads are validated before the handler runs. If validation fails, the job is **completed (removed)** rather than retried — this prevents invalid payloads from being retried indefinitely.
 
 ## Example Timeline
 

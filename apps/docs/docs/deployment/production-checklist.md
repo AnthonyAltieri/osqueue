@@ -29,13 +29,13 @@ Before deploying osqueue to production, review this checklist.
 - [ ] **Check `/healthz`** — returns `{"status":"ok"}` when the broker is running
 - [ ] **Monitor `/v1/stats`** — track total, unclaimed, in-progress, and completed counts
 - [ ] **Watch `/v1/throttle-stats`** — if `throttledWrites` is growing, your commit interval may be too low
-- [ ] **Monitor broker leadership** — the broker logs "Lost leadership" if it self-demotes
+- [ ] **Monitor broker leadership** — the broker logs "Lost leadership — shutting down" if it self-demotes
 
 ## Networking
 
-- [ ] **HTTPS via Caddy** — set the `DOMAIN` environment variable for automatic TLS
-- [ ] **DNS records** — point `yourdomain.com`, `demo.yourdomain.com`, and `api.yourdomain.com` to the Elastic IP
-- [ ] **Security group** — only open ports 80 (HTTP), 443 (HTTPS), and 22 (SSH)
+- [ ] **TLS via CloudFront** — SST provisions a CloudFront distribution with an ACM certificate for HTTPS termination
+- [ ] **DNS records** — SST creates Route53 records pointing your domain and subdomains to CloudFront (update your registrar's nameservers if the domain is external)
+- [ ] **Security group** — only port 80 (HTTP) is exposed on the EC2 instance; CloudFront handles HTTPS
 
 ## Cost Control
 

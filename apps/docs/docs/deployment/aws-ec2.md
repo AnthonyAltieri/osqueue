@@ -9,12 +9,21 @@ osqueue deploys to a single EC2 t2.micro instance (AWS free tier eligible) runni
 ## Architecture
 
 ```
+                    Internet
+                       │
+                       ▼
+              ┌────────────────┐
+              │  CloudFront    │◀── HTTPS (ACM cert)
+              │  CDN + TLS     │
+              └───────┬────────┘
+                      │ HTTP
+                      ▼
 ┌─────────────────────────────────────────────────┐
 │                 EC2 t2.micro                     │
 │                                                  │
 │  ┌──────────┐                                    │
-│  │  Caddy   │◀── HTTPS ── Internet               │
-│  │  :80/443 │                                    │
+│  │  Caddy   │◀── HTTP :80 ── CloudFront          │
+│  │  :80     │                                    │
 │  └────┬─────┘                                    │
 │       │                                          │
 │       ├── yourdomain.com → Docs (static files)   │
@@ -53,8 +62,11 @@ This provisions:
 - An S3 bucket for queue state
 - An ECR repository for the Docker image
 - A t2.micro EC2 instance with an Elastic IP
+- A CloudFront distribution for TLS termination and CDN
+- An ACM certificate for your domain (wildcard)
+- A Route53 hosted zone with DNS records
 - IAM roles with S3 and ECR access
-- A security group allowing HTTP (80), HTTPS (443), and SSH (22)
+- A security group allowing HTTP (port 80 only — CloudFront terminates TLS)
 
 The Docker image is built from `infra/Dockerfile.ec2` and pushed to ECR.
 
@@ -64,14 +76,14 @@ The `Dockerfile.ec2` builds a multi-stage image:
 
 1. **Dependencies**: Installs all workspace packages via `bun install`
 2. **Build**: Compiles all packages in dependency order, plus the web dashboard
-3. **Caddy**: Copies the Caddy binary for reverse proxy / HTTPS
+3. **Caddy**: Copies the Caddy binary for HTTP reverse proxy (TLS is handled by CloudFront)
 4. **Entrypoint**: Runs `infra/entrypoint.sh`
 
 ## Entrypoint: What Runs
 
 The `entrypoint.sh` script starts all services:
 
-1. **Caddy** — reverse proxy with automatic HTTPS (if `DOMAIN` is set)
+1. **Caddy** — HTTP reverse proxy routing by domain (TLS is handled by CloudFront)
 2. **Two brokers** on ports 8080 and 8081 — one becomes leader, the other retries every 10 seconds
 3. **Health check wait** — waits for at least one broker to become healthy
 4. **Three workers** — connect to the leader broker
@@ -79,11 +91,11 @@ The `entrypoint.sh` script starts all services:
 
 ## Domain Setup
 
-1. Point your domain's A record to the Elastic IP (shown in SST output)
-2. Point `demo.yourdomain.com` and `api.yourdomain.com` to the same IP
-3. Caddy auto-provisions TLS certificates via Let's Encrypt
+SST automatically provisions Route53 DNS records pointing to the CloudFront distribution. The domain, `demo.` subdomain, and `api.` subdomain all route through CloudFront for TLS termination, then to the EC2 instance via an `origin.` subdomain pointing to the Elastic IP.
 
-The Caddyfile routes:
+If you're using a domain registered outside Route53, update your registrar's nameservers to point to the Route53 hosted zone NS records (shown in SST output).
+
+The Caddyfile routes traffic on the EC2 instance:
 - `yourdomain.com` → documentation site (static files from Docusaurus build)
 - `demo.yourdomain.com` → web dashboard (port 3001)
 - `api.yourdomain.com` → broker API (port 8080)

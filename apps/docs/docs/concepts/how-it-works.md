@@ -43,8 +43,8 @@ Time ─────────────────────────
 
 1. Callers submit mutations via `engine.submit(mutation)` which returns a Promise
 2. Mutations accumulate in a buffer
-3. Every `intervalMs` (default: 50ms), the write loop drains the buffer
-4. All buffered mutations are applied sequentially to a copy of the cached state
+3. When a mutation arrives to an empty buffer, the write loop runs immediately (zero delay). When the buffer is empty, it polls every `intervalMs` (default: 50ms)
+4. All buffered mutations are applied sequentially to the cached state (state transitions are immutable — each returns a new object)
 5. Heartbeat expiry runs on every write pass (cleaning up stale jobs)
 6. The modified state is written via CAS
 7. On success, all Promises in the batch resolve
@@ -56,7 +56,7 @@ Time ─────────────────────────
 |--------|---------|-------------|
 | `intervalMs` | `50` | Write loop interval in milliseconds |
 | `heartbeatTimeoutMs` | `30000` | Time before an in-progress job is considered stale |
-| `conflictBackoffMs` | `50` | Base backoff after CAS conflict (multiplied by attempt) |
+| `conflictBackoffMs` | `50` | Base backoff after CAS conflict (multiplied by `attempt + 1`, so 50ms, 100ms, 150ms...) |
 | `maxRetries` | `5` | Maximum CAS retry attempts per batch |
 
 ### Throughput vs Latency

@@ -84,7 +84,7 @@ bun run test:watch
 
 ## Changesets and Versioning
 
-osqueue uses [Changesets](https://github.com/changesets/changesets) for version management. Published packages (`@osqueue/client`, `@osqueue/broker`, `@osqueue/worker`) use linked versioning — they always share the same version number.
+osqueue uses [Changesets](https://github.com/changesets/changesets) for version management. Published packages (`@osqueue/client`, `@osqueue/broker`, `@osqueue/worker`) use linked versioning — when any linked package is bumped, all linked packages receive the same bump level.
 
 ```bash
 # Create a changeset

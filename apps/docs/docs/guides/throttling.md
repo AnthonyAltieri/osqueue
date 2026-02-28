@@ -35,12 +35,14 @@ const storage = new ThrottledStorageBackend({
 });
 ```
 
-Or via environment variables (used by the example app):
+Or via environment variables (used by the example app). Despite the `S3_` prefix, these apply to **all** storage backends (S3, GCS, Memory):
 
 ```bash
 S3_MAX_READS_PER_MINUTE=60
 S3_MAX_WRITES_PER_MINUTE=30
 ```
+
+When both values are `0` (the default), throttling is disabled entirely.
 
 ## How It Works
 
